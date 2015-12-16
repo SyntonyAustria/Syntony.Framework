@@ -1,0 +1,74 @@
+<StyleCopSettings Version="4.3">
+	<GlobalSettings>
+		<StringProperty Name="MergeSettingsFiles">Linked</StringProperty>
+		<StringProperty Name="LinkedSettingsFile">.\CommonProperties\SharedSources\Settings.StyleCop</StringProperty>
+		<BooleanProperty Name="AutoCheckForUpdate">False</BooleanProperty> <!-- This tells StyleCop to not check for StyleCop updates as doing so is unnecessary and can cause random build failures. -->
+		<StringProperty Name="Culture">en-US</StringProperty><!-- use same as defined in one of the AssemblyInfo.cs files -->
+		<CollectionProperty Name="DictionaryFolders">
+			<Value>.\CommonProperties\SharedSources</Value>
+		</CollectionProperty>
+		<CollectionProperty Name="RecognizedWords">
+			<Value>Dll</Value>          
+			<Value>flag</Value>
+			<Value>flags</Value>
+		</CollectionProperty>
+	</GlobalSettings>
+	<Parsers>
+		<Parser ParserId="StyleCop.CSharp.CsParser">
+		<ParserSettings>
+			<CollectionProperty Name="GeneratedFileFilters">
+				<Value>\.g\.cs$</Value>
+				<Value>\.generated\.cs$</Value>
+				<Value>\.g\.i\.cs$</Value>
+				<Value>TemporaryGeneratedFile_.*\.cs$</Value>
+			</CollectionProperty>
+			<BooleanProperty Name="AnalyzeDesignerFiles">False</BooleanProperty>
+		</ParserSettings>
+		</Parser>
+	</Parsers>
+	<Analyzers>
+		<Analyzer AnalyzerId="StyleCop.CSharp.DocumentationRules">
+			<Rules>
+				<Rule Name="PropertyDocumentationMustHaveValue">
+					<RuleSettings>
+						<BooleanProperty Name="Enabled">True</BooleanProperty>
+					</RuleSettings>
+				</Rule>
+				<Rule Name="PropertyDocumentationMustHaveValueText">
+					<RuleSettings>
+						<BooleanProperty Name="Enabled">True</BooleanProperty>
+					</RuleSettings>
+				</Rule>
+				<Rule Name="DocumentationTextMustBeginWithACapitalLetter">
+					<RuleSettings>
+						<BooleanProperty Name="Enabled">True</BooleanProperty>
+					</RuleSettings>
+				</Rule>
+				<Rule Name="DocumentationTextMustEndWithAPeriod">
+					<RuleSettings>
+						<BooleanProperty Name="Enabled">True</BooleanProperty>
+					</RuleSettings>
+				</Rule>
+				<Rule Name="DocumentationTextMustMeetMinimumCharacterLength">
+					<RuleSettings>
+						<BooleanProperty Name="Enabled">True</BooleanProperty>
+					</RuleSettings>
+				</Rule>
+				<Rule Name="FileHeaderMustHaveSummary">
+					<RuleSettings>
+						<BooleanProperty Name="Enabled">True</BooleanProperty>
+					</RuleSettings>
+				</Rule>
+				<Rule Name="FileHeaderMustShowCopyright">
+					<RuleSettings>
+						<BooleanProperty Name="Enabled">False</BooleanProperty>
+					</RuleSettings>
+				</Rule>
+			</Rules>
+			<AnalyzerSettings>
+				<StringProperty Name="CompanyName">Syntony</StringProperty>
+				<StringProperty Name="Copyright">Copyright © 2004 - 2015 by Syntony / Josef Hahnl - syntony@aon.at - All rights reserved.</StringProperty>
+			</AnalyzerSettings>
+		</Analyzer>
+	</Analyzers>
+</StyleCopSettings>

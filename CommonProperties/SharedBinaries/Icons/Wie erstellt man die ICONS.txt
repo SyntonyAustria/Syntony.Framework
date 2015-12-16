@@ -1,0 +1,21 @@
+Wie erstellt man die Icons?
+
+Aus einer PNG Datei:
+1) Importiere die PNG Datei in Axialis IconWorkshop
+2) Eventuelle Transparenzbereiche festlegen
+3) Erzeuge Icon (button ganz links) mit den Standards für Windows Icons und setze Rendering Options auf SMOOTH
+
+
+
+Wenn man aus einer VEKTORGRAFIK ein Icon erstellen will:
+1) In Corel Draw eine Vektorgrafik erstellen und 
+2) als CDR Datei abspeichern (Sicherung).
+3) Exportieren der Vektorgrafik in eine PNG Datei wie folgt:
+   Strg+E, PNG-Format, Exportieren, Transparenter Hintergrund aktivieren, OK, 
+   Bildfarbe aktivieren, Bildfarbe aktivieren und transparente Hintergrundfarbe mit Pinsel im ORIGINAL auswählen, OK
+
+
+Mit IconCool Studio Pro 5 eine 256 x 256 Pixel große PNG Datei in den IconCool Mixer übernehmen (Create Elemet List)
+Dieses Element dann mit den Effekten bearbeiten.
+
+

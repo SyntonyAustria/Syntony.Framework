@@ -1,0 +1,1793 @@
+<!--
+***********************************************************************************************
+Syntony.Common.target
+***********************************************************************************************
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your Syntony projects from the command-line or the IDE.
+
+This file defines the steps in the standard build process specific for Syntony Framework projects.
+
+Copyright © 2013-2013 by Syntony - http://members.aon.at/hahnl - All rights reserved.
+
+By using the Import element, you can reuse code that is common to many project files. 
+This makes it easier to maintain the code because any updates you make to the shared code 
+get propagated to all the projects that import it.
+
+http://msdn.microsoft.com/en-us/library/92x05xfs.aspx
+http://msdn.microsoft.com/en-us/library/ms171464.aspx
+***********************************************************************************************
+-->
+
+<!-- this file is always stored in BRANCH\CommonProperties\SharedSources -->
+
+<!--
+  Important properties:
+    <RunTests> ... default set to false ... if true run tests if a reference to NUnit or MsTest is detected
+    <SyntonyBuildDocumentation> ... default set to true ... if true build documentation via SHFB if a *.shfbproj file is detected
+    <RestorePackages> ... default set to true ... if true restores all referenced NuGet packages
+    <BuildPackage> ... default set to false ...  if true the current project is packed to a NuGet package *.nupkg
+    <PublishPackage> ... default set to false ... if true the NuGet package *.nupkg ist published to NuGet.org and the local server
+-->
+
+
+<!--EXTERNAL_PROPERTIES: VisualStudioVersion;MSBuildThisFileDirectory;Syntony;SyntonySharedToolsDirectory;SyntonyCommonPropsHasBeenImported;MSBuildThisFileFullPath-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <Import Project="($(MSBuildThisFileDirectory)Syntony.Common.props" Condition="'$(SyntonyCommonPropsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.props')" />
+
+  <!--
+  ====================================================================================================================================================================================
+                      SYNTONY NuGet properties
+  ====================================================================================================================================================================================	-->
+  <ItemGroup Condition=" '$(PackageSources)' == '' ">
+      <!-- Package sources used to restore packages. By default, registered sources under %APPDATA%\NuGet\NuGet.Config will be used -->
+      <!-- The official NuGet package source (https://www.nuget.org/api/v2/) will be excluded if package sources are specified and it does not appear in the list -->
+      <!--
+          <PackageSource Include="https://www.nuget.org/api/v2/" />
+          <PackageSource Include="https://my-nuget-source/nuget/" />
+      -->
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Windows specific commands -->
+    <NuGetToolsPath Condition=" '$(OS)' == 'Windows_NT' And ('$(Syntony)' == '' Or '$(Syntony)' == 'false')">$([System.IO.Path]::Combine($(SolutionDir), ".nuget"))</NuGetToolsPath>
+    <PackagesConfig Condition=" '$(OS)' == 'Windows_NT' And ('$(Syntony)' == '' Or '$(Syntony)' == 'false')">$([System.IO.Path]::Combine($(ProjectDir), "packages.config"))</PackagesConfig>
+
+    <!-- SYNTONY Windows specific commands -->
+    <NuGetToolsPath Condition=" '$(OS)' == 'Windows_NT' And '$(Syntony)' == 'true'">$(SyntonySharedToolsDirectory)</NuGetToolsPath>
+    <PackagesConfig Condition=" '$(OS)' == 'Windows_NT' And '$(Syntony)' == 'true'">$([System.IO.Path]::Combine($(ProjectDir), "packages.config"))</PackagesConfig>
+
+    <!-- We need to launch nuget.exe with the mono command if we're not on windows -->
+    <NuGetToolsPath Condition=" '$(OS)' != 'Windows_NT'">$(SolutionDir).nuget</NuGetToolsPath>
+    <PackagesConfig Condition=" '$(OS)' != 'Windows_NT'">packages.config</PackagesConfig>
+
+    <!-- Solution root for package restore. -->
+    <PaddedSolutionDir Condition=" $(PaddedSolutionDir) == ''">"$(SolutionDir.Trim('\\'))"</PaddedSolutionDir>
+
+    <!-- NuGet command -->
+    <!-- the NuGet application to be executed --> 
+    <NuGetApp>NuGet.exe</NuGetApp>
+    <NuGetExePath Condition=" '$(NuGetExePath)' == '' ">$(NuGetToolsPath)\$(NuGetApp)</NuGetExePath>
+    <PackageSources Condition=" $(PackageSources) == '' ">@(PackageSource)</PackageSources>
+    
+    <NuGetCommand Condition=" '$(OS)' == 'Windows_NT'">"$(NuGetExePath)"</NuGetCommand>
+    <NuGetCommand Condition=" '$(OS)' != 'Windows_NT' ">mono --runtime=v4.0.30319 $(NuGetExePath)</NuGetCommand>
+
+    <RequireConsentSwitch Condition=" $(RequireRestoreConsent) == 'true' ">-RequireConsent</RequireConsentSwitch>
+    <NonInteractiveSwitch Condition=" '$(VisualStudioVersion)' != '' AND '$(OS)' == 'Windows_NT' ">-NonInteractive</NonInteractiveSwitch>
+  </PropertyGroup>
+  
+  <!--
+  ====================================================================================================================================================================================
+                      SYNTONY TestRunner properties
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <RunTests Condition=" '$(RunTests)' == '' ">false</RunTests>
+    <TestRunnerContinueOnError Condition="'$(TestRunnerContinueOnError)'==''">true</TestRunnerContinueOnError>
+    <ReportTestFailures Condition="'$(ReportTestFailures)'==''">false</ReportTestFailures>
+  </PropertyGroup>
+  
+  <!--
+  ====================================================================================================================================================================================
+                      SYNTONY Documentation build properties
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyBuildDocumentation Condition="'$(SyntonyBuildDocumentation)'==''">true</SyntonyBuildDocumentation>
+    <DocumentationConfiguration Condition="'$(DocumentationConfiguration)'==''">Release</DocumentationConfiguration>
+  </PropertyGroup>
+
+
+  <!--
+  ====================================================================================================================================================================================
+                      Create, Restore and Publish NuGetPackage
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <!-- Enable the restore command to run before builds -->
+    <RestorePackages Condition="  '$(RestorePackages)' == '' ">true</RestorePackages> <!-- now set TRUE by default -->
+
+    <!-- Determines if package restore consent is required to restore packages -->
+    <RequireRestoreConsent Condition=" '$(RequireRestoreConsent)' != 'false' ">true</RequireRestoreConsent>
+
+    <!-- Property that enables building a package from a project -->
+    <!-- There are THREE properties evaluated to build a package. If only one is TRUE, the package will be build.
+      BuildPackage            property set inside *.csproj
+      BuildPackageSymbol      BUILD_PACKAGE defined in conditional compilation symbols (DefineConstants) inside Visual Studio
+      BuildPackageDefine      #define BUILD_PACKAGE inside an AssemblyInfo.cs file
+    -->
+    <BuildPackageSymbol Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($(DefineConstants), '^(.*;)*BUILD_PACKAGE(;.*)*$'))">true</BuildPackageSymbol>
+    <BuildPackage Condition=" '$(BuildPackage)' == ''">false</BuildPackage>
+    <BuildPackage Condition=" '$(BuildPackage)' == 'true' OR '$(BuildPackageSymbol)' == 'true'">true</BuildPackage>
+    
+    <DefaultBuildPackageConfiguration>Release</DefaultBuildPackageConfiguration> <!-- to build for every configuration use $(Configuration) -->
+    
+    <!-- Property that enables a project to be excluded from package creation -->
+    <SkipBuildPackage Condition=" '$(SkipBuildPackage)' == '' ">false</SkipBuildPackage>
+
+    <!-- Property that enables publishing a package from a project -->
+    <!-- There are THREE properties evaluated to build a package. If only one is TRUE, the package will be build.
+      PublishPackage            property set inside *.csproj
+      PublishPackageSymbol      PUBLISH_PACKAGE defined in conditional compilation symbols (DefineConstants) inside Visual Studio
+      PublishPackageDefine      #define PUBLISH_PACKAGE inside an AssemblyInfo.cs file
+    -->
+    <PublishPackageSymbol Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($(DefineConstants), '^(.*;)*PUBLISH_PACKAGE(;.*)*$'))">true</PublishPackageSymbol>
+    <PublishPackage Condition=" '$(PublishPackage)' == '' ">false</PublishPackage>
+    <PublishPackage Condition=" '$(PublishPackage)' == 'true' OR '$(PublishPackageSymbol)' == 'true'">true</PublishPackage>
+
+    <!-- Property that enables a project to be excluded from package publishing -->
+    <SkipPublishPackage Condition=" '$(SkipPublishPackage)' == '' ">false</SkipPublishPackage>
+
+    <!-- Download NuGet.exe if it does not already exist -->
+    <DownloadNuGetExe Condition=" '$(DownloadNuGetExe)' == '' ">true</DownloadNuGetExe>
+
+    <!-- Force download latest NuGet.exe -->
+    <ForceDownloadNuGetExe Condition=" '$(ForceDownloadNuGetExe)' == '' ">false</ForceDownloadNuGetExe>
+
+    <!-- the NuGet API key a7ee0033-d619-46e3-bb22-5cd487d1a648 is for Syntony --> 
+    <NuGetApiKey Condition=" '$(NuGetApiKey)' == '' ">a7ee0033-d619-46e3-bb22-5cd487d1a648</NuGetApiKey>
+
+    <!-- the NuGet GalleryServiceUrl ... Specifies the server URL. If not specified, nuget.org is used unless DefaultPushSource config value is set in the NuGet config file. 
+      Starting with NuGet 2.5, if NuGet.exe identifies a UNC/folder source (like \\mycompany\repo\), it will perform the file copy to the source. --> 
+    <NuGetGalleryServiceUrl Condition=" '$(NuGetGalleryServiceUrl)' == '' "></NuGetGalleryServiceUrl>
+
+    <NuSpecFile>$(MSBuildProjectName).nuspec</NuSpecFile>
+    <SyntonyPackageDir>$(SyntonySharedBinariesDirectory)\$(Company)\Packages</SyntonyPackageDir><!-- The directory where to save the NuGet package ... maybe to add "\$(Configuration)" -->
+  </PropertyGroup>
+  
+  <!--
+  ====================================================================================================================================================================================
+                      CodeTaskAssembly for UsingTask tasks
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
+    <CodeTaskAssembly Condition="'$(MSBuildAssemblyVersion)' == ''">$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll</CodeTaskAssembly>
+    <!-- In VS2013, the assembly contains the VS version. -->
+    <!-- <CodeTaskAssembly Condition="'$(MSBuildAssemblyVersion)' == '12.0'">$(MSBuildToolsPath)\Microsoft.Build.Tasks.v12.0.dll</CodeTaskAssembly> -->
+    <!-- In VS2015+, the assembly was renamed, hopefully this will be the last condition! -->
+    <!-- <CodeTaskAssembly Condition="'$(MSBuildAssemblyVersion)' != '' and '$(MSBuildAssemblyVersion)' &gt;= '14.0'">$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll</CodeTaskAssembly> -->
+  </PropertyGroup>
+
+  <!--
+  ====================================================================================================================================================================================
+                      All SyntonyBefore- and SyntonyAfter-Targets
+  ====================================================================================================================================================================================	-->
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyBeforeBuild
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyBeforeBuild" BeforeTargets="BeforeBuild">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   B E F O R E   B U I L D"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyAfterBuild
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyAfterBuild" AfterTargets="AfterBuild">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   A F T E R   B U I L D"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyBeforeRebuild
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyBeforeRebuild" BeforeTargets="BeforeRebuild">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   B E F O R E   R E B U I L D"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <CallTarget Targets="ClearPropertyFiles"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyAfterRebuild
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyAfterRebuild" AfterTargets="AfterRebuild">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   A F T E R   R E B U I L D"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <CallTarget Targets="ClearPropertyFiles"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyBeforeClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyBeforeClean" BeforeTargets="BeforeClean">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   B E F O R E   C L E A N"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <CallTarget Targets="ClearPropertyFiles"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyAfterClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyAfterClean" AfterTargets="AfterClean">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   A F T E R   C L E A N"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <CallTarget Targets="ClearPropertyFiles"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    ASCII SYNTONY http://patorjk.com/software/taag/#p=testall&f=Avatar&t=Syntony
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyLogo1" BeforeTargets="SyntonyBeforeBuild;BeforeClean">
+    <Message Importance="high" Text="$(SyntonySeparator)" />   
+    <Message Text="  ______                                   " Importance="high" />
+    <Message Text=" / _____)             _                    " Importance="high" />
+    <Message Text="( (____  _   _ ____ _| |_ ___  ____  _   _ " Importance="high" />
+    <Message Text=" \____ \| | | |  _ (_   _) _ \|  _ \| | | |" Importance="high" />
+    <Message Text=" _____) ) |_| | | | || || |_| | | | | |_| |" Importance="high" />
+    <Message Text="(______/ \__  |_| |_| \__)___/|_| |_|\__  |" Importance="high" />
+    <Message Text="        (____/                      (____/ " Importance="high" />
+    <Message Importance="high" Text="$(SyntonySeparator)" />   
+    <Message Importance="high" Text=" " />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  <Target Name="SyntonyLogo2">
+    <Message Importance="high" Text="$(SyntonySeparator)" />   
+    <Message Importance="high" Text=" " />
+    <Message Text="   ___|                 |                        " Importance="high" />
+    <Message Text=" \___ \   |   |  __ \   __|   _ \   __ \   |   | " Importance="high" />
+    <Message Text="       |  |   |  |   |  |    (   |  |   |  |   | " Importance="high" />
+    <Message Text=" _____/  \__, | _|  _| \__| \___/  _|  _| \__, | " Importance="high" />
+    <Message Text="         ____/                            ____/  " Importance="high" />
+    <Message Importance="high" Text=" " />
+    <Message Importance="high" Text="$(SyntonySeparator)" />   
+    <Message Importance="high" Text=" " />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  <Target Name="SyntonyLogo3">
+    <Message Importance="high" Text="$(SyntonySeparator)" />   
+    <Message Importance="high" Text=" " />
+    <Message Text="   _____             _                    " Importance="high" />
+    <Message Text="  / ____|           | |                   " Importance="high" />
+    <Message Text=" | (___  _   _ _ __ | |_ ___  _ __  _   _ " Importance="high" />
+    <Message Text="  \___ \| | | | '_ \| __/ _ \| '_ \| | | |" Importance="high" />
+    <Message Text="  ____) | |_| | | | | || (_) | | | | |_| |" Importance="high" />
+    <Message Text=" |_____/ \__, |_| |_|\__\___/|_| |_|\__, |" Importance="high" />
+    <Message Text="          __/ |                      __/ |" Importance="high" />
+    <Message Text="         |___/                      |___/ " Importance="high" />
+    <Message Importance="high" Text=" " />
+    <Message Importance="high" Text="$(SyntonySeparator)" />   
+    <Message Importance="high" Text=" " />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  <Target Name="SyntonyLogo4">
+    <Message Importance="high" Text="$(SyntonySeparator)" />   
+    <Message Importance="high" Text=" " />
+    <Message Text=" __             _                    " Importance="high" />
+    <Message Text="/ _\_   _ _ __ | |_ ___  _ __  _   _ " Importance="high" />
+    <Message Text="\ \| | | | '_ \| __/ _ \| '_ \| | | |" Importance="high" />
+    <Message Text="_\ \ |_| | | | | || (_) | | | | |_| |" Importance="high" />
+    <Message Text="\__/\__, |_| |_|\__\___/|_| |_|\__, |" Importance="high" />
+    <Message Text="    |___/                      |___/ " Importance="high" />
+    <Message Importance="high" Text=" " />
+    <Message Importance="high" Text="$(SyntonySeparator)" />   
+    <Message Importance="high" Text=" " />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    ShowReservedProperties
+  ====================================================================================================================================================================================	-->
+  <Target Name="ShowReservedProperties" AfterTargets="BeforeBuild">  
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="R E S E R V E D   A N D   W E L L K N O W N   P R O P E R T I E S" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuild: $(MSBuild)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildBinPath: $(MSBuildBinPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildExtensionsPath: $(MSBuildExtensionsPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildExtensionsPath32: $(MSBuildExtensionsPath32)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildExtensionsPath64: $(MSBuildExtensionsPath64)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildLastTaskResult: $(MSBuildLastTaskResult)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildNodeCount: $(MSBuildNodeCount)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildOverrideTasksPath: $(MSBuildOverrideTasksPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProgramFiles32: $(MSBuildProgramFiles32)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectDirectory: $(MSBuildProjectDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectDirectoryNoRoot: $(MSBuildProjectDirectoryNoRoot)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectFile: $(MSBuildProjectFile)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectExtension: $(MSBuildProjectExtension)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectFullPath: $(MSBuildProjectFullPath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectName: $(MSBuildProjectName)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildToolsPath: $(MSBuildToolsPath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectDefaultTargets: $(MSBuildProjectDefaultTargets)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildStartupDirectory: $(MSBuildStartupDirectory)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFile: $(MSBuildThisFile)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFileDirectory: $(MSBuildThisFileDirectory)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFileDirectoryNoRoot: $(MSBuildThisFileDirectoryNoRoot)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFileExtension: $(MSBuildThisFileExtension)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFileFullPath: $(MSBuildThisFileFullPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFileName: $(MSBuildThisFileName)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildToolsPath: $(MSBuildToolsPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildToolsVersion: $(MSBuildToolsVersion)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ShowSyntonyProperties
+  ====================================================================================================================================================================================	-->
+  <Target Name="ShowSyntonyProperties" AfterTargets="BeforeBuild">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="StartTicks:            $(StartTicks)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Now:                   $(Now)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Today:                 $(Today)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Syntony:               $(Syntony)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Company:               $(Company)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonyCommonDrive:    $(SyntonyCommonDrive)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="ProjectDrive:          $(ProjectDrive)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SameDrive:             $(SameDrive)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonySharedSourcesDirectory:  $(SyntonySharedSourcesDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonySharedBinariesDirectory: $(SyntonySharedBinariesDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonySharedToolsDirectory:    $(SyntonySharedToolsDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SourceDirectory:       $(SourceDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="BranchDirectory:       $(BranchDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SolutionDir:           $(SolutionDir)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="BuildDependsOn:        @(BuildDependsOn)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyAnalyzeAssemblyInfoFiles
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyAnalyzeAssemblyInfoFiles" AfterTargets="PreBuildEvent">
+    <PropertyGroup>
+      <Pattern>AssemblyInfo\.cs$</Pattern>
+    </PropertyGroup>
+    <ItemGroup>
+      <!--
+      There are a few properties that can be defined inside 
+      CompanyAssemblyInfo (Syntony.AssemblyInfo.cs) in $(SyntonySharedSourcesDirectory) directory or
+      CompanyFrameworkAssemblyInfo (Syntony.Framework.AssemblyInfo.cs) in $(SyntonySharedSourcesDirectory) directory or
+      ProjectAssemblyInfo (Syntony.MSBuildProjectName.AssemblyInfo.cs) in $(MSBuildProjectDirectory)\Properties directory or
+      CompanyProjectVersionAssemblyInfo (Syntony.MSBuildProjectName.Version.AssemblyInfo.cs) in $(MSBuildProjectDirectory)\Properties directory or
+      AssemblyInfo (AssemblyInfo.cs) in $(MSBuildProjectDirectory)\Properties directory:
+      
+      CreateNuGetPackage is set to true if  #define BUILD_PACKAGE is found
+      AssemblyDescription
+      AssemblyProduct
+      AssemblyCompany
+      AssemblyCopyright
+      AssemblyConfiguration
+      AssemblyVersionMajor
+      AssemblyVersionMinor
+      AssemblyVersionBuild
+      AssemblyVersionRevision
+      -->
+      <!-- Get all *AssemblyInfo.cs files -->
+      <AllIncludedAssemblyInfoFiles Include="%(Compile.Identity)" Condition="Exists('%(FullPath)') And %(Extension) == '.cs' And $([System.Text.RegularExpressions.Regex]::IsMatch('%(FullPath)', '$(Pattern)', System.Text.RegularExpressions.RegexOptions.IgnoreCase))"/>
+    </ItemGroup>
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonyAnalyzeAssemblyInfoFiles: @(AllIncludedAssemblyInfoFiles)" />     
+    
+    <!-- Call CheckOneAssemblyInfoFile foreach file in AllIncludedAssemblyInfoFiles -->
+    <MSBuild Projects="$(MSBuildProjectFile)" Properties="CurrentAssemblyInfoFile=%(AllIncludedAssemblyInfoFiles.Identity)" Targets="CheckOneAssemblyInfoFile" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!-- This target checks the current analyzed file $(CurrentAssemblyInfoFile) if it exists -->
+  <Target Name="CheckOneAssemblyInfoFile" Condition="Exists('$(CurrentAssemblyInfoFile)')">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " /> 
+    <Message Importance="$(SyntonyMessageImportance)" Text="CurrentAssemblyInfoFilen to check:  $(CurrentAssemblyInfoFile)" /> 
+    <PropertyGroup>
+      <!-- original one <VersionPattern>\(\D*(\d+)\.(\d+)\.(\d+)\.(\d+)</VersionPattern> -->
+      <VersionPattern>\(\D*(\d+)\.(\d+)\.(\d+)</VersionPattern> <!-- \(\D*(\d+)(?:\.\d+)(?:\.\d+)(?:\.\d+) -->
+      <StringPattern>\(\s*"([^"]+)</StringPattern>
+      <BuildNuGetPackagePattern>^\s*#define\s*(BUILD_PACKAGE)\b</BuildNuGetPackagePattern>
+      <PublishNuGetPackagePattern>^\s*#define\s*(PUBLISH_PACKAGE)\b</PublishNuGetPackagePattern>
+      <In>$([System.IO.File]::ReadAllText('$(CurrentAssemblyInfoFile)'))</In>
+      <_BuildPackageDefine Condition=" '$(BuildPackage)' == '' Or '$(BuildPackage.ToLower())' == 'false'">$([System.Text.RegularExpressions.Regex]::Match($(In), $(BuildNuGetPackagePattern), System.Text.RegularExpressions.RegexOptions.Multiline | RegexOptions.IgnoreCase).Success.ToString().ToLower())</_BuildPackageDefine>
+      <_PublishPackageDefine Condition=" '$(PublishPackage)' == '' Or '$(PublishPackage.ToLower())' == 'false'">$([System.Text.RegularExpressions.Regex]::Match($(In), $(PublishNuGetPackagePattern), System.Text.RegularExpressions.RegexOptions.Multiline | RegexOptions.IgnoreCase).Success.ToString().ToLower())</_PublishPackageDefine>
+      <Pattern>^\s*\[assembly:\s*AssemblyDescription$(StringPattern)"</Pattern>
+      <_AssemblyDescription Condition=" '$(AssemblyDescription)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyDescription>
+      <Pattern>^\s*\[assembly:\s*AssemblyProduct$(StringPattern)"</Pattern>
+      <_AssemblyProduct Condition=" '$(AssemblyProduct)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyProduct>
+      <Pattern>^\s*\[assembly:\s*AssemblyCompany$(StringPattern)"</Pattern>
+      <_AssemblyCompany Condition=" '$(AssemblyCompany)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyCompany>
+      <Pattern>^\s*\[assembly:\s*AssemblyCopyright$(StringPattern)"</Pattern>
+      <_AssemblyCopyright Condition=" '$(AssemblyCopyright)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyCopyright>
+      <Pattern>^\s*\[assembly:\s*AssemblyConfiguration$(StringPattern)"</Pattern>
+      <_AssemblyConfiguration Condition=" '$(AssemblyConfiguration)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyConfiguration>
+      <Pattern>^\s*\[assembly:\s*AssemblyVersion\(\D*(\d+)</Pattern>
+      <_AssemblyVersionMajor Condition=" '$(AssemblyVersionMajor)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyVersionMajor>
+      <Pattern>^\s*\[assembly:\s*AssemblyVersion\(\D*(\d+)\.(\d+)</Pattern>
+      <_AssemblyVersionMinor Condition=" '$(AssemblyVersionMinor)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[2].Value)</_AssemblyVersionMinor>
+      <Pattern>^\s*\[assembly:\s*AssemblyVersion\(\D*(\d+)\.(\d+)\.(\d+)</Pattern>
+      <_AssemblyVersionBuild Condition=" '$(AssemblyVersionBuild)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[3].Value)</_AssemblyVersionBuild>
+      <Pattern>^\s*\[assembly:\s*AssemblyVersion\(\D*(\d+)\.(\d+)\.(\d+)\.(\d+)</Pattern>
+      <_AssemblyVersionRevision Condition=" '$(AssemblyVersionRevision)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[4].Value)</_AssemblyVersionRevision>
+    </PropertyGroup>
+
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=BuildPackageDefine;SyntonyPropertyValue=$(_BuildPackageDefine)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=PublishPackageDefine;SyntonyPropertyValue=$(_PublishPackageDefine)" Targets="WriteToFile" />
+    
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyDescription;SyntonyPropertyValue=$(_AssemblyDescription)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyProduct;SyntonyPropertyValue=$(_AssemblyProduct)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyCompany;SyntonyPropertyValue=$(_AssemblyCompany)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyCopyright;SyntonyPropertyValue=$(_AssemblyCopyright)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyConfiguration;SyntonyPropertyValue=$(_AssemblyConfiguration)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyVersionMajor;SyntonyPropertyValue=$(_AssemblyVersionMajor)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyVersionMinor;SyntonyPropertyValue=$(_AssemblyVersionMinor)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyVersionBuild;SyntonyPropertyValue=$(_AssemblyVersionBuild)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyVersionRevision;SyntonyPropertyValue=$(_AssemblyVersionRevision)" Targets="WriteToFile" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!--
+  ====================================================================================================================================================================================
+                      FileProperties - SyntonyPropertyFile - SyntonyPropertyValue
+  ====================================================================================================================================================================================	-->
+  <Target Name="WriteToFile" Condition="$(SyntonyPropertyFile)!='' And ($(SyntonyPropertyValue)!='' And '$(SyntonyPropertyValue.ToLower())' != 'false')">
+    <Message Importance="$(SyntonyMessageImportance)" Text="Write to file '$(SyntonyPropertyFile)' with value '$(SyntonyPropertyValue)'" /> 
+    <Delete Files="$(SyntonyPropertyFile)"/>
+    <WriteLinesToFile File="$(SyntonyPropertyFile)" Lines="$(SyntonyPropertyValue)"/>
+    <!-- Create file in %Temp% folder??? -->
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!--
+  ====================================================================================================================================================================================
+                      SyntonyBuildError
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyBuildErrorDependsOn>
+      ClearPropertyFiles;
+    </SyntonyBuildErrorDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyBuildError" DependsOnTargets="$(SyntonyBuildErrorDependsOn)">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                      ClearPropertyFiles
+  ====================================================================================================================================================================================	-->
+  <Target Name="ClearPropertyFiles" AfterTargets="Build" BeforeTargets="Build;SyntonyBeforeClean">
+    <Delete Files="BuildPackageDefine"/>
+    <Delete Files="PublishPackageDefine"/>
+    <Delete Files="AssemblyDescription"/>
+    <Delete Files="AssemblyProduct"/>
+    <Delete Files="AssemblyCompany"/>
+    <Delete Files="AssemblyCopyright"/>
+    <Delete Files="AssemblyConfiguration"/>
+    <Delete Files="AssemblyVersionMajor"/>
+    <Delete Files="AssemblyVersionMinor"/>
+    <Delete Files="AssemblyVersionBuild"/>
+    <Delete Files="AssemblyVersionRevision"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="A L L   P R O P E R T Y F I L E S   D E L E T E D" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                      T4 - Transformation
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyT4TransformOnBuild" AfterTargets="BeforeBuild">
+    <!-- https://github.com/loudej/crosswalk/blob/master/tools/msbuild/Microsoft.TextTemplating.targets -->
+    <PropertyGroup>
+      <_TextTransform>TextTransform.exe</_TextTransform>
+      <_TransformExe>SyntonySharedToolsDirectory\$(_TestRunner)</_TransformExe> <!-- Initial default value -->
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">C:\Program Files (x86)\Common Files\Microsoft Shared\TextTemplating\14.0\$(_TextTransform)</_TransformExe><!-- Initial default value -->
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(CommonProgramFiles)\Microsoft Shared\TextTemplating\$(VisualStudioVersion)\$(_TextTransform)</_TransformExe> <!-- If explicit VS version, override default -->
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">C:\Program Files (x86)\Common Files\Microsoft Shared\TextTemplating\$(VisualStudioVersion)\$(_TextTransform)</_TransformExe> <!-- If explicit VS version, override default -->
+      <!-- Cascading probing if file not found -->
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\$(_TextTransform)"</_TransformExe>
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(CommonProgramFiles)\Microsoft Shared\TextTemplating\13.0\$(_TextTransform)"</_TransformExe>
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(CommonProgramFiles)\Microsoft Shared\TextTemplating\10.0\$(_TextTransform)"</_TransformExe>
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(CommonProgramFiles)\Microsoft Shared\TextTemplating\11.0\$(_TextTransform)"</_TransformExe>
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(CommonProgramFiles)\Microsoft Shared\TextTemplating\12.0\$(_TextTransform)"</_TransformExe>
+    </PropertyGroup>
+    
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="T4 Transformation" /> 
+    <Error Text="Failed to find $(_TextTransform) tool at '$(_TransformExe)." Condition="!Exists('$(_TransformExe)')"/>
+ 
+    <ItemGroup>
+      <_TextTransformFiles Include="@(None)" Condition="'%(None.Generator)' == 'TextTemplatingFilePreprocessor' Or '%(None.Generator)' == 'TextTemplatingFileGenerator'" />
+    </ItemGroup>
+ 
+    <Message Importance="$(SyntonyMessageImportance)" Text="@(_TextTransformFiles->'%(Identity)')" /> 
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <!-- Perform task batching for each file -->
+    <Exec Command="&quot;$(_TransformExe)&quot; &quot;@(_TextTransformFiles)&quot;" Condition="'%(Identity)' != ''" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    ShowGeneratedProperties
+  ====================================================================================================================================================================================	-->
+  <Target Name="ShowGeneratedProperties" AfterTargets="SyntonyAnalyzeAssemblyInfoFiles">  
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="G E N E R A T E D   P R O P E R T I E S" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" Today  = $(Today)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" Now  = $(Now)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" SyntonySharedSourcesDirectory  = $(SyntonySharedSourcesDirectory)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" SyntonySharedBinariesDirectory  = $(SyntonySharedBinariesDirectory)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" SyntonySharedToolsDirectory  = $(SyntonySharedToolsDirectory)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" SourceDirectory  = $(SourceDirectory)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Condition="Exists('$(CompanyAssemblyInfo)')" Text=" CompanyAssemblyInfo = $(CompanyAssemblyInfo)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Condition="!Exists('$(CompanyAssemblyInfo)')" Text=" CompanyAssemblyInfo = $(CompanyAssemblyInfo) --- NOT EXISTS!" />   
+    <Message Importance="$(SyntonyMessageImportance)" Condition="Exists('$(CompanyFrameworkAssemblyInfo)')" Text=" CompanyFrameworkAssemblyInfo = $(CompanyFrameworkAssemblyInfo)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Condition="!Exists('$(CompanyFrameworkAssemblyInfo)')" Text=" CompanyFrameworkAssemblyInfo = $(CompanyFrameworkAssemblyInfo) --- NOT EXISTS!" />   
+    <Message Importance="$(SyntonyMessageImportance)" Condition="Exists('$(ProjectAssemblyInfo)')" Text=" ProjectAssemblyInfo = $(ProjectAssemblyInfo)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Condition="!Exists('$(ProjectAssemblyInfo)')" Text=" ProjectAssemblyInfo = $(ProjectAssemblyInfo) --- NOT EXISTS!" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="Exists('$(CompanyProjectVersionAssemblyInfo)')" Text=" CompanyProjectVersionAssemblyInfo = $(CompanyProjectVersionAssemblyInfo)" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="!Exists('$(CompanyProjectVersionAssemblyInfo)')" Text=" CompanyProjectVersionAssemblyInfo = $(CompanyProjectVersionAssemblyInfo) --- NOT EXISTS!" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="Exists('$(AssemblyInfo)')" Text=" AssemblyInfo = $(AssemblyInfo)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Condition="!Exists('$(AssemblyInfo)')" Text=" AssemblyInfo = $(AssemblyInfo) --- NOT EXISTS!" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+
+    <ReadLinesFromFile File="AssemblyProduct">
+      <Output TaskParameter="Lines" PropertyName="AssemblyProductValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyProduct  = $(AssemblyProductValue)" />     
+
+    <ReadLinesFromFile File="AssemblyDescription">
+      <Output TaskParameter="Lines" PropertyName="AssemblyDescriptionValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyDescription  = $(AssemblyDescriptionValue)" />     
+
+    <ReadLinesFromFile File="AssemblyCompany">
+      <Output TaskParameter="Lines" PropertyName="AssemblyCompanyValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyCompany  = $(AssemblyCompanyValue)" />   
+
+    <ReadLinesFromFile File="AssemblyCopyright">
+      <Output TaskParameter="Lines" PropertyName="AssemblyCopyrightValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyCopyright  = $(AssemblyCopyrightValue)" />   
+    
+    <ReadLinesFromFile File="AssemblyConfiguration">
+      <Output TaskParameter="Lines" PropertyName="AssemblyConfigurationValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyConfiguration  = $(AssemblyConfigurationValue)" />   
+
+    <ReadLinesFromFile File="AssemblyVersionMajor">
+      <Output TaskParameter="Lines" PropertyName="AssemblyVersionMajorValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyVersionMajor  = $(AssemblyVersionMajorValue)" />     
+    
+    <ReadLinesFromFile File="AssemblyVersionMinor">
+      <Output TaskParameter="Lines" PropertyName="AssemblyVersionMinorValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyVersionMinor  = $(AssemblyVersionMinorValue)" />   
+
+    <ReadLinesFromFile File="AssemblyVersionBuild">
+      <Output TaskParameter="Lines" PropertyName="AssemblyVersionBuildValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyVersionBuild  = $(AssemblyVersionBuildValue)" />     
+
+    <ReadLinesFromFile File="AssemblyVersionRevision">
+      <Output TaskParameter="Lines" PropertyName="AssemblyVersionRevisionValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyVersionRevision  = $(AssemblyVersionRevisionValue)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+
+    <PropertyGroup>
+      <BuildPackageDefineValue>false</BuildPackageDefineValue>
+    </PropertyGroup>
+    <ReadLinesFromFile File="BuildPackageDefine">
+      <Output TaskParameter="Lines" PropertyName="BuildPackageDefineValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" BuildPackageDefine  = $(BuildPackageDefineValue)" />   
+
+    <PropertyGroup>
+      <PublishNuGetPackageValue>false</PublishNuGetPackageValue>
+    </PropertyGroup>
+    <ReadLinesFromFile File="PublishPackageDefine">
+      <Output TaskParameter="Lines" PropertyName="PublishNuGetPackageValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" PublishNuGetPackageValue  = $(PublishNuGetPackageValue)" />   
+
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ValidateNuGetPrerequisites - prerequisites for NuGet
+  ====================================================================================================================================================================================	-->
+  <Target Name="ValidateNuGetPrerequisites">
+    <!-- Raise an error if we're unable to locate nuget.exe  -->
+    <Error Condition="('$(DownloadNuGetExe)' != 'true' OR '$(ForceDownloadNuGetExe)' != 'true')AND !Exists('$(NuGetExePath)')" Text="Unable to locate '$(NuGetExePath)'" />
+    <!--
+    Take advantage of MsBuild's build dependency tracking to make sure that we only ever download nuget.exe once.
+    This effectively acts as a lock that makes sure that the download operation will only happen once and all
+    parallel builds will have to wait for it to complete. -->
+    <MsBuild Targets="_DownloadNuGet" Projects="$(MSBuildThisFileFullPath)" Properties="Configuration=NOT_IMPORTANT;DownloadNuGetExe=$(DownloadNuGetExe);ForceDownloadNuGetExe=$(ForceDownloadNuGetExe)" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    DownloadNuGet from https://www.nuget.org/nuget.exe
+  ====================================================================================================================================================================================	-->
+  <Target Name="_DownloadNuGet">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="D O W N L O A D   N U G E T   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="DownloadNuGetExe:       $(DownloadNuGetExe)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="ForceDownloadNuGetExe:  $(ForceDownloadNuGetExe)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Syntony:                $(Syntony)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuGetExePath:           $(NuGetExePath)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="Exists('NuGetExePath'): true" Condition="Exists('$(NuGetExePath)')"/>     
+    <Message Importance="$(SyntonyMessageImportance)" Text="Exists('NuGetExePath'): false" Condition="!Exists('$(NuGetExePath)')"/>     
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    
+    <DownloadNuGet OutputFilename="$(NuGetExePath)" ForceDownload="$(ForceDownloadNuGetExe)" Condition=" ('$(DownloadNuGetExe)' == 'true' AND !Exists('$(NuGetExePath)')) OR '$(ForceDownloadNuGetExe)' == 'true'"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyNuGetRestorePackages
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyNuGetRestorePackagesDependsOn>
+      BeforeSyntonyNuGetRestorePackages;
+      CoreSyntonyNuGetRestorePackages;
+      AfterSyntonyNuGetRestorePackages
+    </SyntonyNuGetRestorePackagesDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyNuGetRestorePackages" DependsOnTargets="$(SyntonyNuGetRestorePackagesDependsOn)" AfterTargets="BeforeBuild" Condition="'$(RestorePackages)' == 'true'">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <Target Name="CoreSyntonyNuGetRestorePackages" DependsOnTargets="ValidateNuGetPrerequisites">
+    <PropertyGroup>
+      <!-- Installs a package using the specified sources. If no sources are specified, all sources defined in %AppData%\NuGet\NuGet.config are used. If NuGet.config specifies no sources, uses the default NuGet feed. -->
+      <RestoreCommand Condition="'$(PackageSources)' != ''">$(NuGetCommand) install "$(PackagesConfig)" -Source "$(PackageSources)" $(NonInteractiveSwitch) $(RequireConsentSwitch) -SolutionDir $(PaddedSolutionDir)</RestoreCommand>
+      <RestoreCommand Condition="'$(PackageSources)' == ''">$(NuGetCommand) install "$(PackagesConfig)" $(NonInteractiveSwitch) $(RequireConsentSwitch) -solutionDir $(PaddedSolutionDir)</RestoreCommand>
+    </PropertyGroup>
+
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="R E S T O R E   P A C K A G E S   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="RestorePackages:       $(RestorePackages)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="Syntony:               $(Syntony)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="PackagesConfig:        $(PackagesConfig)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="PackageSources:        $(PackageSources)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NonInteractiveSwitch:  $(NonInteractiveSwitch)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="RequireConsentSwitch:  $(RequireConsentSwitch)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="PaddedSolutionDir:     $(PaddedSolutionDir)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="RestoreCommand:        $(RestoreCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+
+    <Exec Command="$(RestoreCommand)" Condition="'$(OS)' != 'Windows_NT' And Exists('$(PackagesConfig)')" />
+    <Exec Command="$(RestoreCommand)" LogStandardErrorAsError="true" Condition="'$(OS)' == 'Windows_NT' And Exists('$(PackagesConfig)')" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyNuGetBuildPackage
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyNuGetBuildPackageDependsOn>
+      SetPropertiesForSyntonyNuGetBuildPackage;
+      BeforeSyntonyNuGetBuildPackage;
+      CoreSyntonyNuGetBuildPackage;
+      AfterSyntonyNuGetBuildPackage
+    </SyntonyNuGetBuildPackageDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyNuGetBuildPackage" DependsOnTargets="$(SyntonyNuGetBuildPackageDependsOn)" BeforeTargets="AfterBuild">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <Target Name="SetPropertiesForSyntonyNuGetBuildPackage">
+    <PropertyGroup>
+      <BuildPackageDefineValue>false</BuildPackageDefineValue>
+    </PropertyGroup>
+    <ReadLinesFromFile File="BuildPackageDefine">
+      <Output TaskParameter="Lines" PropertyName="BuildPackageDefineValue" />
+    </ReadLinesFromFile>
+    
+    <PropertyGroup>
+      <_BuildPackage Condition=" '$(BuildPackage)' == ''">false</_BuildPackage>
+      <_BuildPackage Condition=" '$(BuildPackage)' == 'true' OR '$(BuildPackageDefineValue)' == 'true'">true</_BuildPackage>
+    </PropertyGroup>
+    
+    
+    <CreateProperty Value="$(_BuildPackage)">
+      <Output TaskParameter="Value" PropertyName="BuildNuGetPackage"/>
+    </CreateProperty>
+    
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="B A S I C   C O N D I T I O N S   F O R   B U I L D   P A C K A G E"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="No package build will be performed. BuildNuGetPackage not set."  Condition="'$(BuildNuGetPackage)' == ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="No package build will be performed. BuildNuGetPackage set to '$(BuildNuGetPackage)'."  Condition="'$(BuildNuGetPackage)' != 'true' AND '$(BuildNuGetPackage)' != ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Build package skipped."  Condition="'$(SkipBuildPackage)' == 'true'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="No package build. Build package is performed for '$(DefaultBuildPackageConfiguration)' configuration only. Current configuration: '$(Configuration)|$(Platform)'."  Condition="'$(Configuration)' != '$(DefaultBuildPackageConfiguration)'"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <Target Name="CreateDefaultNuspecFile" Condition="!Exists($(NuSpecFile))">
+  <!-- 
+    <ItemGroup>
+      <Line Include="line01"><Text>&lt;xunit&gt;</Text></Line>
+      <Line Include="line02"><Text>&lt;assemblies&gt;</Text></Line>
+      <Line Include="line03"><Text>&lt;assembly filename=&quot;%(TestAssembly.Identity)&quot; shadow-copy=&quot;true&quot; /&gt;</Text></Line>
+      <Line Include="line04"><Text>&lt;/assemblies&gt;</Text></Line>
+      <Line Include="line05"><Text>&lt;/xunit&gt;</Text></Line>
+      <LineText Include="%(Line.Text)" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(NuSpecFile)" Lines="@(LineText)" Overwrite="true" Encoding="UTF-8" />
+
+    http://www.jeremyskinner.co.uk/2011/01/12/automating-nuget-package-creation-with-msbuild-and-powershell
+    
+    BUILD TEMP NUSPEC FILE: http://code.openhub.net/file?fid=hxZ3TETFtJuylXCeM_zRp6TWJro&cid=eli_ZoaGftM&s=&fp=549783&mp&projSelected=true#L0
+  -->
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!--
+  Automating NuGet package creation with MSBuild and PowerShell
+
+  https://github.com/JeremySkinner/FluentValidation/tree/master/.build 
+
+  https://docs.nuget.org/consume/package-restore/migrating-to-automatic-package-restore
+
+  http://ihadthisideaonce.com/2014/02/24/nuget-like-a-pro-the-msbuild-way/
+  -->
+  <!--
+  ====================================================================================================================================================================================
+                    CreateNewNuGetPackageFromProjectAfterEachBuild ... Version 1.8.8
+  ====================================================================================================================================================================================
+  <PostBuildEvent>REM Create a NuGet package for this project and place the .nupkg file in the project's output directory.
+  REM If you see this in Visual Studio's Error List window, check the Output window's Build tab for the actual error.
+  ECHO Creating NuGet package in Post-Build event...
+  PowerShell -NoProfile -ExecutionPolicy Bypass -Command "&amp; '$(SyntonySharedToolsDirectory)CreateNuGetPackage\CreateNuGetPackage.ps1' -ProjectFilePath '$(ProjectPath)' -OutputDirectory '$(TargetDir)' -BuildConfiguration '$(ConfigurationName)' -BuildPlatform '$(PlatformName)'"
+  </PostBuildEvent>
+    -->
+  
+  <!--
+  ====================================================================================================================================================================================
+                    CoreSyntonyNuGetBuildPackage
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <CoreSyntonyNuGetBuildPackageDependsOn>
+      ValidateNuGetPrerequisites;
+    </CoreSyntonyNuGetBuildPackageDependsOn>
+  </PropertyGroup>
+  <Target Name="CoreSyntonyNuGetBuildPackage" DependsOnTargets="$(CoreSyntonyNuGetBuildPackageDependsOn)" Condition="'$(SkipBuildPackage)' != 'true' AND '$(BuildNuGetPackage)' == 'true' AND '$(Configuration)' == '$(DefaultBuildPackageConfiguration)'">
+    <!-- http://ihadthisideaonce.com/2014/02/24/nuget-like-a-pro-the-msbuild-way/ -->
+    <GetAssemblyIdentity AssemblyFiles="$(OutputPath)$(AssemblyName).dll">
+      <Output TaskParameter="Assemblies" ItemName="OutputAssemblyInfo" />
+    </GetAssemblyIdentity>
+    
+    <!-- Ensure the Package directory exists for this project -->
+    <PropertyGroup>
+      <PackageOutputDir Condition="$(PackageOutputDir) == '' And '$(Syntony)' == 'false'">$(TargetDir.Trim('\\'))</PackageOutputDir> <!-- use output directory of target -->
+      <PackageOutputDir Condition="$(PackageOutputDir) == '' And '$(Syntony)' == 'true'">$(SyntonyPackageDir)</PackageOutputDir>
+
+      <!-- Creates a NuGet package based on the specified nuspec or project file. -->
+      <BuildCommand Condition="!Exists('$(NuSpecFile)') AND '$(PackageOutputDir)' != ''">$(NuGetCommand) pack "$(MSBuildProjectFile)" -Properties "Configuration=$(Configuration);Platform=$(Platform)" $(NonInteractiveSwitch) -OutputDirectory "$(PackageOutputDir)" -IncludeReferencedProjects -Verbosity Detailed -Version %(OutputAssemblyInfo.Version)</BuildCommand>
+      <BuildCommand Condition="!Exists('$(NuSpecFile)') AND '$(PackageOutputDir)' == ''">$(NuGetCommand) pack "$(MSBuildProjectFile)" -Properties "Configuration=$(Configuration);Platform=$(Platform)" $(NonInteractiveSwitch) -IncludeReferencedProjects -Symbols -Verbosity Detailed -Version %(OutputAssemblyInfo.Version)</BuildCommand>
+      <BuildCommand Condition="Exists('$(NuSpecFile)') AND '$(PackageOutputDir)' != ''">$(NuGetCommand) pack "$(NuSpecFile)" -Properties "Configuration=$(Configuration);Platform=$(Platform)" $(NonInteractiveSwitch) -OutputDirectory "$(PackageOutputDir)" -IncludeReferencedProjects -Symbols -Verbosity Detailed -Version %(OutputAssemblyInfo.Version)</BuildCommand>
+      <BuildCommand Condition="Exists('$(NuSpecFile)') AND '$(PackageOutputDir)' == ''">$(NuGetCommand) pack "$(NuSpecFile)" -Properties "Configuration=$(Configuration);Platform=$(Platform)" $(NonInteractiveSwitch) -IncludeReferencedProjects -Symbols -Verbosity Detailed -Version %(OutputAssemblyInfo.Version)</BuildCommand>
+    </PropertyGroup>
+
+    <!-- <RemoveDir Directories="$(PackageOutputDir)" /> -->
+    <MakeDir Directories="$(PackageOutputDir)" Condition = "!Exists('$(PackageOutputDir)')" />
+    
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="B U I L D   P A C K A G E   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="BuildPackage:         $(BuildPackage)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="BuildNuGetPackage:    $(BuildNuGetPackage)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="NonInteractiveSwitch: $(NonInteractiveSwitch)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="Syntony:              $(Syntony)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="Version:              %(OutputAssemblyInfo.Version)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Name:                 %(OutputAssemblyInfo.Name)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="PublicKeyToken:       %(OutputAssemblyInfo.PublicKeyToken)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Culture:              %(OutputAssemblyInfo.Culture)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuSpecFile:           $(NuSpecFile) exists." Condition="Exists('$(NuSpecFile)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuSpecFile:           $(NuSpecFile) NOT exists." Condition="!Exists('$(NuSpecFile)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="PackageOutputDir:     $(PackageOutputDir)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Configuration:        $(Configuration)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Platform:             $(Platform)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="OS:                   $(OS)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="BuildCommand:         $(BuildCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+
+    <Exec Command="$(BuildCommand)" Condition=" '$(OS)' != 'Windows_NT' " />
+    <Exec Command="$(BuildCommand)" LogStandardErrorAsError="true" Condition=" '$(OS)' == 'Windows_NT' " />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    PublishPackage
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyNuGetPublishPackageDependsOn>
+      SetPropertiesForSyntonyNuGetPublishPackage;
+      BeforeSyntonyNuGetPublishPackage;
+      CoreSyntonyNuGetPublishPackage;
+      AfterSyntonyNuGetPublishPackage
+    </SyntonyNuGetPublishPackageDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyNuGetPublishPackage" DependsOnTargets="$(SyntonyNuGetPublishPackageDependsOn)" BeforeTargets="SyntonyNuGetBuildPackage" Condition="'$(Configuration)' == 'Release' AND Exists('$(OutputPath)$(AssemblyName).dll')">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <Target Name="SetPropertiesForSyntonyNuGetPublishPackage">
+    <PropertyGroup>
+      <PublishPackageDefineValue>false</PublishPackageDefineValue>
+    </PropertyGroup>
+    <ReadLinesFromFile File="PublishPackageDefine">
+      <Output TaskParameter="Lines" PropertyName="PublishPackageDefineValue" />
+    </ReadLinesFromFile>
+    
+    <PropertyGroup>
+      <_PublishPackage Condition=" '$(PublishPackage)' == ''">false</_PublishPackage>
+      <_PublishPackage Condition=" '$(PublishPackage)' == 'true' OR '$(PublishPackageDefineValue)' == 'true'">true</_PublishPackage>
+    </PropertyGroup>
+    
+    
+    <CreateProperty Value="$(_PublishPackage)">
+      <Output TaskParameter="Value" PropertyName="PublishNuGetPackage"/>
+    </CreateProperty>
+    
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="B A S I C   C O N D I T I O N S   F O R   P U B L I S H   P A C K A G E"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="No publish package will be performed. PublishNuGetPackage not set."  Condition="'$(PublishNuGetPackage)' == ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="No publish package will be performed. PublishNuGetPackage set to '$(PublishNuGetPackage)'."  Condition="'$(PublishNuGetPackage)' != 'true' AND '$(PublishNuGetPackage)' != ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Publish build skipped."  Condition="'$(SkipPublishPackage)' == 'true'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="No package build. Build package is performed for 'Release' configuration only. Current configuration: '$(Configuration)|$(Platform)'."  Condition="'$(Configuration)' != 'Release'"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <PropertyGroup>
+    <CoreSyntonyNuGetPublishPackageDependsOn>
+      ValidateNuGetPrerequisites;
+    </CoreSyntonyNuGetPublishPackageDependsOn>
+  </PropertyGroup>
+  <Target Name="CoreSyntonyNuGetPublishPackage" DependsOnTargets="$(CoreSyntonyNuGetPublishPackageDependsOn)" Condition="'$(PublishNuGetPackage)' == 'true' AND '$(SkipPublishPackage)' == '' Or '$(SkipPublishPackage)' == 'false'">
+    <GetAssemblyIdentity AssemblyFiles="$(OutputPath)$(AssemblyName).dll">
+      <Output TaskParameter="Assemblies" ItemName="OutputAssemblyInfo" />
+    </GetAssemblyIdentity>
+    <PropertyGroup>
+      <PackageOutputDir Condition="'$(PackageOutputDir)' == '' And '$(Syntony)' == 'false'">$(TargetDir.Trim('\\'))</PackageOutputDir> <!-- use output directory of target -->
+      <PackageOutputDir Condition="'$(PackageOutputDir)' == '' And '$(Syntony)' == 'true'">$(SyntonyPackageDir)</PackageOutputDir>
+      
+      <_Nupkg>$(PackageOutputDir)\$(AssemblyName).%(OutputAssemblyInfo.Version).nupkg</_Nupkg> <!-- the full path of the package to publish -->
+
+      <!-- Add PUBLISH package   https://gist.github.com/radleta/1049910         -->
+      <!-- Pushes a package to the server and publishes it. NuGet's default configuration is obtained by loading %AppData%\NuGet\NuGet.config, then loading any nuget.config or .nuget\nuget.config starting from root of drive and ending in current directory. -->
+      <!-- Publish the nupkg to the well known NuGet server 
+        Note: "nuget setApiKey {put-your-api-key-here} -Source http://My_Nuget_Gallery_Service_Url/" must be run prior on the machine to ensure the api key is set correctly. -->
+      <PrePublishCommand Condition="'$(NuGetGalleryServiceUrl)' != ''">$(NuGetCommand) setApiKey "$(NuGetApiKey)" -Source $(NuGetGalleryServiceUrl)</PrePublishCommand> 
+      <PrePublishCommand Condition="'$(NuGetGalleryServiceUrl)' == ''">$(NuGetCommand) setApiKey "$(NuGetApiKey)"</PrePublishCommand> 
+      <PublishCommand Condition="'$(NuGetGalleryServiceUrl)' != ''">$(NuGetCommand) push "$(_Nupkg)" -Source $(NuGetGalleryServiceUrl)</PublishCommand>
+      <PublishCommand Condition="'$(NuGetGalleryServiceUrl)' == ''">$(NuGetCommand) push "$(_Nupkg)"</PublishCommand>
+      <DeleteCommand Condition="'$(NuGetGalleryServiceUrl)' != ''">$(NuGetCommand) delete $(AssemblyName) %(OutputAssemblyInfo.Version) -Source $(NuGetGalleryServiceUrl) -NonInteractive</DeleteCommand>
+      <DeleteCommand Condition="'$(NuGetGalleryServiceUrl)' == ''">$(NuGetCommand) delete $(AssemblyName) %(OutputAssemblyInfo.Version) -NonInteractive</DeleteCommand>
+      <!--
+        Der API-Schlüssel "a7ee0033-d619-46e3-bb22-5cd487d1a648" wurde für "der NuGet-Katalog (https://www.nuget.org)" und "der Symbolserver (http://nuget.gw.symbolsource.org/Public/NuGet)" gespeichert.
+        Syntony.Framework.Assistance 0.1.18812.0 wird mittels Push an der NuGet-Katalog (https://www.nuget.org) übertragen...
+        Ihr Paket wurde mittels Push übertragen.			-->
+      <!--
+       It's always a good idea to have a local copy of all your packages since as we've recently seen, there are times when NuGet goes down which could impact development or continuous builds
+       syncnuget.bat
+       for /f "usebackq tokens=*" %%n in (`dir /b /s packages\*.nupkg`) do copy "%%n" C:\Path\To\Repository /y
+      -->
+    </PropertyGroup>
+
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="P U B L I S H   P A C K A G E   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuGetCommand:           $(NuGetCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuGetApiKey:            $(NuGetApiKey)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuGetGalleryServiceUrl: $(NuGetGalleryServiceUrl)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="AssemblyName:           $(AssemblyName)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Version:                %(OutputAssemblyInfo.Version)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Name:                   %(OutputAssemblyInfo.Name)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FullPackagePath:        $(_Nupkg) exists." Condition="Exists('$(_Nupkg)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="FullPackagePath:        $(_Nupkg) NOT exists." Condition="!Exists('$(_Nupkg)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="PrePublishCommand:      $(PrePublishCommand)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="PublishCommand:         $(PublishCommand)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="DeleteCommand:          $(DeleteCommand)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+
+    <Exec Command="$(PrePublishCommand)" Condition=" '$(OS)' != 'Windows_NT' AND Exists('$(_Nupkg)')"/>
+    <Exec Command="$(PrePublishCommand)" LogStandardErrorAsError="true" Condition=" '$(OS)' == 'Windows_NT' AND Exists('$(_Nupkg)')"/>
+    <Exec Command="$(PublishCommand)" Condition=" '$(OS)' != 'Windows_NT' AND Exists('$(_Nupkg)')" />
+    <Exec Command="$(PublishCommand)" LogStandardErrorAsError="true" Condition=" '$(OS)' == 'Windows_NT' AND Exists('$(_Nupkg)')" />
+    
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSyntonyNuGetRestorePackages
+  Redefine this target in your project in order to run tasks just before CoreSyntonyNuGetRestorePackages
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSyntonyNuGetRestorePackages"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSyntonyNuGetRestorePackages
+  Redefine this target in your project in order to run tasks just after CoreSyntonyNuGetRestorePackages
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSyntonyNuGetRestorePackages"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSyntonyNuGetBuildPackage
+  Redefine this target in your project in order to run tasks just before CoreSyntonyNuGetBuildPackage
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSyntonyNuGetBuildPackage"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSyntonyNuGetBuildPackage
+  Redefine this target in your project in order to run tasks just after CoreSyntonyNuGetBuildPackage
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSyntonyNuGetBuildPackage"/>
+  
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSyntonyNuGetPublishPackage
+  Redefine this target in your project in order to run tasks just before CoreSyntonyNuGetPublishPackage
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSyntonyNuGetPublishPackage"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSyntonyNuGetPublishPackage
+  Redefine this target in your project in order to run tasks just after CoreSyntonyNuGetPublishPackage
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSyntonyNuGetPublishPackage"/>
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    Sandcastle Help File Builder SHFB
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyHelpFileBuilderDependsOn>
+      InitSHFB;
+      BeforeSHFB;
+      ValidateSHFB;
+      CoreSHFB;
+      AfterSHFB
+    </SyntonyHelpFileBuilderDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyBuildDocumentation" DependsOnTargets="$(SyntonyHelpFileBuilderDependsOn)" BeforeTargets="Build" Condition=" '$(Configuration)' == '$(DocumentationConfiguration)' AND '$(SyntonyBuildDocumentation)' == 'true'" >
+  </Target>
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    InitSHFB
+  ====================================================================================================================================================================================	-->
+  <Target Name="InitSHFB">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S H F B"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonyBuildDocumentation:          $(SyntonyBuildDocumentation)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Configuration:               $(Configuration)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="DocumentationConfiguration:  $(DocumentationConfiguration)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+
+    <ItemGroup>
+      <SHFBFile Include="$(ProjectDir)*.shfbproj"/>
+    </ItemGroup>
+    
+    <ItemGroup Condition="'@(SHFBFile)' != ''">
+      <DocTarget Include="$(TargetPath);$(DocumentationFile);" />
+    </ItemGroup>
+
+    <!-- http://www.paraesthesia.com/archive/2011/09/28/make-your-sandcastle-help-file-builder-project-dynamic-with-msbuild.aspx/ -->
+    <CreateProperty Value="@(DocTarget -> '&lt;DocumentationSource sourceFile=%27%(FullPath)%27 /&gt;', '')" Condition="'@(SHFBFile)' != ''"> 
+      <Output TaskParameter="Value" PropertyName="DocumentationSources" />
+    </CreateProperty>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ValidateSHFB
+  ====================================================================================================================================================================================	-->
+  <Target Name="ValidateSHFB">
+    <Message Importance="$(SyntonyMessageImportance)" Text="no Sandcastle project files" Condition="'@(SHFBFile)' == ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Sandcastle project files: %(SHFBFile.Identity)" Condition="'@(SHFBFile)' != ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(DocumentationSources)" Condition="'@(SHFBFile)' == ''"/>
+
+    <Error Condition="'$(DocumentationFile)'==''" Text="DocumentationFile property not defined."/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    CoreSHFB
+  ====================================================================================================================================================================================	-->
+  <Target Name="CoreSHFB" Condition="'@(SHFBFile)' != ''">
+    <MSBuild ToolsVersion="4.0" Projects="%(SHFBFile.FullPath)" Properties="DocumentationSources=$(DocumentationSources)" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSHFB
+  Redefine this target in your project in order to run tasks just before CoreSHFB
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSHFB"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSHFB
+  Redefine this target in your project in order to run tasks just after CoreSHFB
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSHFB"/>
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyTestRunner
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <TestRunnerDependsOn>
+      InitTestRunner;
+      BeforeTestRunner;
+      ValidateTestRunner;
+      CoreTestRunner;
+      DetectTestRunnerFailures;
+      ReportTestRunnerFailures;
+      AfterTestRunner
+    </TestRunnerDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyTestRunner" DependsOnTargets="$(TestRunnerDependsOn)" BeforeTargets="AfterBuild" Condition="'$(RunTests)' == 'true' AND '$(PublishPackage)' != 'true'">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    InitTestRunner
+  ====================================================================================================================================================================================	-->
+  <Target Name="InitTestRunner" Outputs="@(TestAssemblies)">
+    <PropertyGroup>
+      <ContinueOnTestError  Condition="'$(ContinueOnTestError)'==''">true</ContinueOnTestError>
+    </PropertyGroup>
+    
+    <!-- if Reference include nunit.framework it could be a NUnit test -->
+    <FilterList ListToFilter="@(Reference)" Filter="nunit.framework">
+      <Output ItemName="_FilteredNUnitList" TaskParameter="FilteredList" />
+    </FilterList>
+    <PropertyGroup>
+      <_IsNUnit Condition="'@(_FilteredNUnitList)' != ''">true</_IsNUnit>
+      <_IsNUnit Condition="'@(_FilteredNUnitList)' == ''">false</_IsNUnit>
+    </PropertyGroup>
+    <FilterList ListToFilter="@(_FilteredNUnitList)" Filter="Version=3." Condition="'$(_IsNUnit)' == 'true'">
+      <Output ItemName="_NUnit3VersionList" TaskParameter="FilteredList" />
+    </FilterList>
+    <PropertyGroup Condition="'$(_IsNUnit)' == 'true'">
+      <NUnitVersion Condition="'@(_NUnit3VersionList)' != ''">3</NUnitVersion>
+    </PropertyGroup>
+    <FilterList ListToFilter="@(_FilteredNUnitList)" Filter="Version=2." Condition="'$(_IsNUnit)' == 'true'">
+      <Output ItemName="_NUnit2VersionList" TaskParameter="FilteredList" />
+    </FilterList>
+    <PropertyGroup Condition="'$(_IsNUnit)' == 'true'">
+      <NUnitVersion Condition="'@(_NUnit2VersionList)' != ''">2</NUnitVersion>
+    </PropertyGroup>
+    
+    <Error Condition="'$(_IsNUnit)' == 'true' AND '@(_NUnit2VersionList)' != '' AND '@(_NUnit3VersionList)' != ''" Text="NUnit Tests detected but more than one reference."/>
+    <Error Condition="'$(_IsNUnit)' == 'true' AND '@(_NUnit2VersionList)' == '' AND '@(_NUnit3VersionList)' == ''" Text="NUnit Tests detected but no reference to supported version."/>
+    
+    <!-- if Reference include Microsoft.VisualStudio.QualityTools*.* like Microsoft.VisualStudio.QualityTools.UnitTestFramework it could be a MSTest test -->
+    <FilterList ListToFilter="@(Reference)" Filter="Microsoft.VisualStudio.QualityTools">
+      <Output ItemName="_FilteredMSTestList" TaskParameter="FilteredList" />
+    </FilterList>
+    <PropertyGroup>
+      <_IsMSTest Condition="'@(_FilteredMSTestList)' != ''">true</_IsMSTest>
+      <_IsMSTest Condition="'@(_FilteredMSTestList)' == ''">false</_IsMSTest>
+    </PropertyGroup>
+    
+    <PropertyGroup>
+      <_IsTest>false</_IsTest>
+      <_IsTest Condition="'$(_IsNUnit)' == 'true' OR '$(_IsMSTest)' == 'true'">true</_IsTest>
+    </PropertyGroup>
+
+    <CreateProperty Value="$(_IsNUnit)">
+      <Output TaskParameter="Value" PropertyName="IsNUnit"/>
+    </CreateProperty>
+    <CreateProperty Value="$(_IsMSTest)">
+      <Output TaskParameter="Value" PropertyName="IsMSTest"/>
+    </CreateProperty>
+    <CreateProperty Value="$(_IsTest)">
+      <Output TaskParameter="Value" PropertyName="IsTest"/>
+    </CreateProperty>
+    
+    <CreateProperty Value="$(BranchDirectory)\$(TestResultsDirectoryName)">
+      <Output TaskParameter="Value" PropertyName="TestResultsDirectory"/>
+    </CreateProperty>
+
+    <!-- NUnit 3 -->
+    <PropertyGroup Condition=" '$(IsNUnit)'=='true' AND '$(NUnitVersion)' == '3'">
+      <_TestRunner>nunit3-console.exe</_TestRunner>
+    </PropertyGroup>
+    <ItemGroup Condition=" '$(IsNUnit)'=='true' AND '$(NUnitVersion)' == '3' AND Exists('$(SyntonySharedToolsDirectory)\$(_TestRunner)')">
+      <_NUnit3TestRunnerFile Include="SyntonySharedToolsDirectory\$(_TestRunner)" />
+    </ItemGroup>
+    <ItemGroup Condition=" '$(IsNUnit)'=='true' AND '$(NUnitVersion)' == '3' AND '@(_NUnit3TestRunnerFile)' == '' AND Exists('C:\Program Files (x86)\NUnit.org\nunit-console\$(_TestRunner)')">
+      <_NUnit3TestRunnerFile Include="C:\Program Files (x86)\NUnit.org\nunit-console\$(_TestRunner)"/>
+    </ItemGroup>
+    <PropertyGroup Condition=" '$(IsNUnit)'=='true' AND '$(NUnitVersion)' == '3' AND '@(_NUnit3TestRunnerFile)' != ''">
+      <TestRunnerDirectory Condition="'$(TestRunnerDirectory)' == ''">%(_NUnit3TestRunnerFile.RootDir)%(_NUnit3TestRunnerFile.Directory)</TestRunnerDirectory>
+      <SyntonyTestRunner Condition="'$(SyntonyTestRunner)' == '' AND !HasTrailingSlash('$(TestRunnerDirectory)')">$(TestRunnerDirectory)\$(_TestRunner)</SyntonyTestRunner>
+      <SyntonyTestRunner Condition="'$(SyntonyTestRunner)' == '' AND HasTrailingSlash('$(TestRunnerDirectory)')">$(TestRunnerDirectory)$(_TestRunner)</SyntonyTestRunner>
+    </PropertyGroup>
+
+    <!-- NUnit 2 -->
+    <PropertyGroup Condition=" '$(IsNUnit)'=='true' AND '$(NUnitVersion)' == '2'">
+      <_TestRunner>nunit-console.exe</_TestRunner>
+    </PropertyGroup>
+    <ItemGroup Condition=" '$(IsNUnit)'=='true' AND '$(NUnitVersion)' == '2' AND Exists('$(SyntonySharedToolsDirectory)\$(_TestRunner)')">
+      <_NUnit2TestRunnerFile Include="$(SyntonySharedToolsDirectory)\$(_TestRunner)"/>
+    </ItemGroup>
+    <ItemGroup Condition=" '$(IsNUnit)'=='true' AND '$(NUnitVersion)' == '2' AND '@(_NUnit2TestRunnerFile)' == ''">
+      <_NUnit2TestRunnerFile Include="C:\Program Files (x86)\NUnit*\bin\$(_TestRunner)" />
+    </ItemGroup>
+    <PropertyGroup Condition=" '$(IsNUnit)'=='true' AND '$(NUnitVersion)' == '2' AND '@(_NUnit2TestRunnerFile)' != ''">
+      <TestRunnerDirectory Condition="'$(TestRunnerDirectory)' == ''">%(_NUnit2TestRunnerFile.RootDir)%(_NUnit2TestRunnerFile.Directory)</TestRunnerDirectory>
+      <SyntonyTestRunner Condition="'$(SyntonyTestRunner)' == '' AND !HasTrailingSlash('$(TestRunnerDirectory)')">$(TestRunnerDirectory)\$(_TestRunner)</SyntonyTestRunner>
+      <SyntonyTestRunner Condition="'$(SyntonyTestRunner)' == '' AND HasTrailingSlash('$(TestRunnerDirectory)')">$(TestRunnerDirectory)$(_TestRunner)</SyntonyTestRunner>
+    </PropertyGroup>
+    
+    <!-- MSTest -->
+    <PropertyGroup Condition=" '$(IsMSTest)'=='true' ">
+      <_MsTestRunner>MSTest.exe</_MsTestRunner>
+    </PropertyGroup>
+    <ItemGroup Condition=" '$(IsMSTest)'=='true' AND Exists('$(SyntonySharedToolsDirectory)\$(_MsTestRunner)')">
+      <_MSTestTestRunnerFile Include="$(SyntonySharedToolsDirectory)\$(_MsTestRunner)"/>
+    </ItemGroup>
+    <ItemGroup Condition=" '$(IsMSTest)'=='true' AND '@(_MSTestTestRunnerFile)' == ''">
+      <_MSTestTestRunnerFile Include="$(IDEToolsDirectory)\$(_MsTestRunner)" />
+    </ItemGroup>
+    <PropertyGroup Condition=" '$(IsMSTest)'=='true' AND '@(_MSTestTestRunnerFile)' != ''">
+      <MsTestRunnerDirectory Condition="'$(MsTestRunnerDirectory)' == ''">%(_MSTestTestRunnerFile.RootDir)%(_MSTestTestRunnerFile.Directory)</MsTestRunnerDirectory>
+      <MSTestRunner Condition="'$(MSTestRunner)' == '' AND !HasTrailingSlash('$(MsTestRunnerDirectory)')">$(MsTestRunnerDirectory)\$(_MsTestRunner)</MSTestRunner>
+      <MSTestRunner Condition="'$(MSTestRunner)' == '' AND HasTrailingSlash('$(MsTestRunnerDirectory)')">$(MsTestRunnerDirectory)$(_MsTestRunner)</MSTestRunner>
+    </PropertyGroup>
+    
+    <!-- Create TestAssemblies where input-files is one or more assemblies or test projects -->
+    <ItemGroup Condition="'$(IsNUnit)'=='true'">
+      <_TestAssemblies Include="**\*.nunit" />
+    </ItemGroup>
+    <ItemGroup Condition="'@(_TestAssemblies)'==''">
+      <_TestAssemblies Include="$(OutputPath)\**\*Test*.dll" />
+    </ItemGroup>
+    <ItemGroup Condition="'@(_TestAssemblies)'==''">
+      <_TestAssemblies Include="$(TargetPath)" />
+    </ItemGroup>
+        <CreateItem Include="%(_TestAssemblies.Identity)">
+            <Output TaskParameter="Include" ItemName="TestAssemblies"/>
+        </CreateItem>
+    
+    <MakeDir Directories="$(TestResultsDirectory)" Condition="'$(TestResultsDirectory)' != '' AND !Exists('$(TestResultsDirectory)')" />
+    <Delete Files="$(TestResultsDirectory)\%(TestAssemblies.FileName).*TestResults.xml" />
+
+    <PropertyGroup>
+      <!-- MsTest see https://msdn.microsoft.com/en-us/library/ms182489.aspx -->
+      <MSTestCommand Condition=" '$(IsMSTest)'=='true'">"$(MSTestRunner)" /testcontainer:"@(TestAssemblies->'%(FullPath)')" /resultsfile:"$(TestResultsDirectory)\%(FileName).MsTestResults.xml" /nologo</MSTestCommand>
+
+      <!-- NUnit 2 see http://nunit.org/index.php?p=consoleCommandLine&r=2.6.4 -->
+      <NUnitTestCommand Condition=" '$(IsNUnit)'=='true' AND '$(NUnitVersion)' == '2'">"$(SyntonyTestRunner)" "@(TestAssemblies->'%(FullPath)')" "/result:$(TestResultsDirectory)\%(FileName).NUnitTestResults.xml" /noshadow /trace:off /nologo</NUnitTestCommand>
+
+      <!-- NUnit 3 see https://github.com/nunit/nunit/wiki/Console-Command-Line -->
+      <NUnitTestCommand Condition=" '$(IsNUnit)'=='true' AND '$(NUnitVersion)' == '3'">"$(SyntonyTestRunner)" "@(TestAssemblies->'%(FullPath)')" --noheader --trace=off --framework=net-4.5 --labels=off "--result=$(TestResultsDirectory)\%(FileName).NUnitTestResults.xml"</NUnitTestCommand>
+    </PropertyGroup>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ValidateTestRunner
+  ====================================================================================================================================================================================	-->
+  <Target Name="ValidateTestRunner" >
+    <!-- Validate assumptions that are contracted  -->
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="T E S T R U N N E R   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="Reference:            %(Reference.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FilteredNUnitList:    %(_FilteredNUnitList.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsNUnit:              $(IsNUnit)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnitVersion:         $(NUnitVersion)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FilteredMSTestList:   %(_FilteredMSTestList.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsMSTest:             $(IsMSTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsTest:               $(IsTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonyTestRunner:      $(SyntonyTestRunner)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSTestRunner:         $(MSTestRunner)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestAssemblies:       %(TestAssemblies.FullPath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestAssemblies:       %(TestAssemblies.FileName).%(TestAssemblies.Extenion)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestResultsDirectory: $(TestResultsDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestResultFile:       $(TestResultsDirectory)\%(TestAssemblies.FileName).TestResults.xml" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnitTestCommand:     $(NUnitTestCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSTestCommand:        $(MSTestCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="ContinueOnTestError:  $(ContinueOnTestError)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+
+    <Error Condition="!Exists('$(SyntonyTestRunner)')" Text="Couldn't locate SyntonyTestRunner at: '$(SyntonyTestRunner)'."/>
+    <Error Condition="'$(TestResultsDirectory)'==''" Text="TestResultsDirectory property not defined."/>
+    <Error Condition="!Exists('$(TestResultsDirectory)')" Text="Couldn't locate TestResultsDirectory at: '$(TestResultsDirectory)'."/>
+    <Error Condition="'@(TestAssemblies)'==''"	Text="No TestAssemblies defined."/>
+    <Error Condition="!Exists('%(TestAssemblies.FullPath)')" Text="Couldn't locate assembly at: '%(TestAssemblies.FullPath)'." />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    CoreTestRunner
+  ====================================================================================================================================================================================	-->
+  <Target Name="CoreTestRunner" Inputs="%(TestAssemblies.Identity)" Outputs="%(Identity).Dummy">
+    <PropertyGroup>
+      <TestRunnerContinueOnError Condition="'$(TestRunnerContinueOnError)'==''">true</TestRunnerContinueOnError>
+    </PropertyGroup>
+    
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " Condition="'$(IsMSTest)' == 'true'" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" Condition="'$(IsMSTest)' == 'true'"/>   
+    <Message Importance="$(SyntonyMessageImportance)" Text="M S T E S T" Condition="'$(IsMSTest)' == 'true'" />
+    <Exec Command="$(MSTestCommand)" IgnoreExitCode="true" Condition="'$(OS)' != 'Windows_NT' AND '$(IsMSTest)' == 'true'" />
+    <Exec Command="$(MSTestCommand)" IgnoreExitCode="true" LogStandardErrorAsError="true" Condition="'$(OS)' == 'Windows_NT' AND '$(IsMSTest)' == 'true'" />
+
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " Condition="'$(IsNUnit)' == 'true'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" Condition="'$(IsNUnit)' == 'true'"/>   
+    <Message Importance="$(SyntonyMessageImportance)" Text="N U N I T - T E S T" Condition="'$(IsNUnit)' == 'true'" />
+    <Exec Command="$(NUnitTestCommand)" IgnoreExitCode="true" Condition="'$(OS)' != 'Windows_NT' AND '$(IsNUnit)' == 'true'" />
+    <Exec Command="$(NUnitTestCommand)" IgnoreExitCode="true" LogStandardErrorAsError="true" Condition="'$(OS)' == 'Windows_NT' AND '$(IsNUnit)' == 'true'" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" Condition="'$(IsTest)' == 'true'"/>   
+    
+    <ItemGroup Condition="'$(IsMSTest)' == 'true'">
+      <_TestRunnerReportFiles Include="@(TestAssemblies->'$(TestResultsDirectory)\%(FileName).MsTestResults.xml')" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(IsNUnit)' == 'true'">
+      <_TestRunnerReportFiles Include="@(TestAssemblies->'$(TestResultsDirectory)\%(FileName).NUnitTestResults.xml')" />
+    </ItemGroup>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- The MSBuildCommunityTasks is required to have been imported to use this file. -->
+  <Import Project="$(ExtensionTasksPath)MSBuild.ExtensionPack.tasks"/>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    DetectTestRunnerFailures    NUnit
+  ====================================================================================================================================================================================	-->
+  <Target Name="DetectTestRunnerFailures" Inputs="%(_TestRunnerReportFiles.FullPath)" Outputs="%(Identity).Dummy" Condition="'$(IsTest)' == 'true'">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="D E T E C T T E S T R U N N E R F A I L U R E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="_TestRunnerReportFiles: %(_TestRunnerReportFiles.FullPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+
+    <!--
+    <XmlRead ContinueOnError="true" XmlFileName="$(_CurrentTestReportFile)" XPath="$(TestRunnerFailureXPath)">
+      <Output TaskParameter="Value" PropertyName="_TestResults" />
+    </XmlRead>
+    <XmlPeek XmlInputPath="$(_CurrentTestReportFile)" Query="$(TestRunnerFailureXPath)">
+      <Output TaskParameter="Result" PropertyName="_TestResults" />
+    </XmlPeek>
+    -->
+    
+    <!-- there are two files possible:
+      @(TestAssemblies->'$(TestResultsDirectory)\%(FileName).MsTestResults.xml')  	==> IsMSTest == true
+      @(TestAssemblies->'$(TestResultsDirectory)\%(FileName).NUnitTestResults.xml') 	==> IsNUnit == true
+    -->
+    <DetectTestFailureFromFile File="%(_TestRunnerReportFiles.FullPath)" Version="$(NUnitVersion)">
+      <Output TaskParameter="Failures" ItemName="_TestResults" />
+    </DetectTestFailureFromFile >
+  
+    <PropertyGroup>
+      <_TestFailed>false</_TestFailed>
+      <_TestFailed Condition="'@(_TestResults)'!=''">true</_TestFailed>
+    </PropertyGroup>
+
+    <Copy Condition="'$(_TestFailed)' == 'true'" SourceFiles="@(_TestRunnerReportFiles)" DestinationFiles="@(_TestRunnerReportFiles->'%(RootDir)%(Directory)%(Filename).FAILED.xml')"/>
+    <!-- <Delete Condition="$(_TestFailed)==true" Files="@(_TestRunnerReportFiles)"/> -->
+    
+    <MSBuild Projects="$(MSBuildProjectFile)" Properties="_Number=%(_TestResults.Number);_Identity=%(_TestResults.Identity);_Message=%(_TestResults.Message);_StackTrace=%(_TestResults.StackTrace)" Targets="ShowTestFailures" Condition="'$(_TestFailed)' == 'true'"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ShowTestFailures
+  ====================================================================================================================================================================================	-->
+  <Target Name="ShowTestFailures" Inputs="%(_TestRunnerReportFiles.FullPath)" Outputs="%(Identity).Dummy" Condition="'$(ReportTestFailures)' == 'true'">
+    <PropertyGroup>
+      <_EndsWith>%(_TestRunnerReportFiles.FullPath)</_EndsWith>
+    </PropertyGroup>
+
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " Condition="'$(_TestFailed)' == 'true'"/>   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" Condition="'$(_TestFailed)' == 'true'"/>   
+    <Message Importance="$(SyntonyMessageImportance)" Text="@(_TestResults->Count())   M S T E S T - F A I L U R E S" Condition="'$(_TestFailed)' == 'true' AND '@(_TestResults->Count())' != '1' AND $(_EndsWith.EndsWith('MsTestResults.xml'))"/>   
+    <Message Importance="$(SyntonyMessageImportance)" Text="@(_TestResults->Count())   M S T E S T - F A I L U R E" Condition="'$(_TestFailed)' == 'true' AND '@(_TestResults->Count())' == '1' AND $(_EndsWith.EndsWith('MsTestResults.xml'))"/>   
+    <Message Importance="$(SyntonyMessageImportance)" Text="@(_TestResults->Count())   N U N I T T E S T - F A I L U R E S" Condition="'$(_TestFailed)' == 'true' AND '@(_TestResults->Count())' != '1' AND $(_EndsWith.EndsWith('NUnitTestResults.xml'))"/>   
+    <Message Importance="$(SyntonyMessageImportance)" Text="@(_TestResults->Count())   N U N I T T E S T - F A I L U R E" Condition="'$(_TestFailed)' == 'true' AND '@(_TestResults->Count())' == '1' AND $(_EndsWith.EndsWith('NUnitTestResults.xml'))"/>   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" Condition="'$(_TestFailed)' == 'true'"/>   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " Condition="'$(_TestFailed)' == 'true'"/>   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(_Number): $(_Identity)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="  $(_Message)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="  $(_StackTrace)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  <!-- 
+  ====================================================================================================================================================================================
+                    ReportTestRunnerFailures
+  ====================================================================================================================================================================================	-->
+  <Target Name="ReportTestRunnerFailures" Condition="'$(ReportTestFailures)' == 'true'">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeTestRunner
+  Redefine this target in your project in order to run tasks just before CoreTestRunner
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeTestRunner"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterTestRunner
+  Redefine this target in your project in order to run tasks just after CoreTestRunner
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterTestRunner"/>
+
+  <PropertyGroup>
+    <TestRunnerCleanDependsOn>
+      InitTestRunner;
+      BeforeTestRunnerClean;
+      ValidateTestRunnerClean;
+      CoreTestRunnerClean;
+      AfterTestRunnerClean;
+    </TestRunnerCleanDependsOn>
+  </PropertyGroup>
+  <!-- 
+  ====================================================================================================================================================================================
+                    TestRunnerClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="TestRunnerClean" BeforeTargets="AfterClean" DependsOnTargets="$(TestRunnerCleanDependsOn)"/>
+
+  <Target Name="ValidateTestRunnerClean" >
+    <!-- Validate assumptions that are contracted  -->
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="T E S T R U N N E R C L E A N   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="Reference:            %(Reference.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FilteredNUnitList:    %(_FilteredNUnitList.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsNUnit:              $(IsNUnit)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FilteredMSTestList:   %(_FilteredMSTestList.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsMSTest:             $(IsMSTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsTest:               $(IsTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonyTestRunner:           $(SyntonyTestRunner)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestAssemblies:       %(TestAssemblies.FullPath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestAssemblies:       %(TestAssemblies.FileName).%(TestAssemblies.Extenion)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestResultsDirectory: $(TestResultsDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestResultFile:       $(TestResultsDirectory)\%(TestAssemblies.FileName).TestResults.xml'" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+
+    <Error Condition="'$(TestResultsDirectory)'==''" Text="TestResultsDirectory property not defined."/>
+    <Error Condition="!Exists('$(TestResultsDirectory)')" Text="Couldn't locate TestResultsDirectory at: '$(TestResultsDirectory)'."/>
+    <Error Condition="'@(TestAssemblies)'==''"	Text="No TestAssemblies defined."/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    CoreTestRunnerClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="CoreTestRunnerClean" Inputs="@(TestAssemblies)" Outputs="%(Identity).Dummy">
+    <ItemGroup>
+      <_FilesToDelete Remove="*.xml"/>
+      <_FilesToDelete Include="$(TestResultsDirectory)\%(TestAssemblies.FileName).*TestResults*.xml"/>
+    </ItemGroup>   
+
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="C O R E T E S T R U N N E R C L E A N   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="_FilesToDelete:   %(_FilesToDelete.FullPath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+
+    <Delete Files="@(_FilesToDelete)" ContinueOnError="true"/>
+    <DelteAllSubDirectories Folder="$(TestResultsDirectory)" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    BeforeTestRunnerClean
+  Redefine this target in your project in order to run tasks just after CoreTestRunnerClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="BeforeTestRunnerClean" />
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    AfterTestRunnerClean
+  Redefine this target in your project in order to run tasks just after CoreTestRunnerClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="AfterTestRunnerClean" />
+
+  <!--
+    To execute a solution-wide Before and After targets, you would create two MSBuild project files named "after.<SolutionName>.sln.targets" and "before.<SolutionName>.sln.targets" in the same folder as your solution.
+
+    To do this on all solutions, you would drop your custom solution-level after targets files into the 
+    path $(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\SolutionFile\ImportBefore\ or $(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\SolutionFile\ImportAfter. 
+    When those solutions are built, it will import all project files in these folders if they exist.
+
+    To verify the above, open a command prompt and navigate to the folder containing your solution file. Type "SET MSBuildEmitSolution=1". 
+    Then run msbuild.exe <SolutionName>. 
+    You will see that msbuild has saved the metadata project files <SolutionName>.sln.metaproj and <SolutionName>.sln.metaproj.tmp in the same path as your solution. 
+
+    View the <Import /> declarations at the top and bottom of the file and you'll notice the conditional imports that allow you to declare solution-specific before and after targets, or global solution-specific before and after targets.
+    
+    ANOTHER solution could be: http://sedodream.com/2006/01/17/UseMSBuildToBuildSolutionFiles.aspx
+  -->
+  <!-- Examples from the book "Inside MSBuild v2" https://github.com/sayedihashimi/sayed-samples/tree/master/Inside%20MSBuild%20v2 -->
+  <!-- for NUnit see https://github.com/sayedihashimi/sayed-samples/blob/master/Inside%20MSBuild%20v2/Ch07/nunit.targets  -->
+  
+
+  
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    GetReferences
+  ====================================================================================================================================================================================	-->
+  <Target Name="GetReferences" Outputs ="@(ProjReferences)">
+    <Message Text="Getting references for project $(ProjectFile)"/>
+    <CreateItem Include="@(Reference)">
+      <Output ItemName="ProjReferences" TaskParameter="Include"/>
+    </CreateItem>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+   </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SetEnvironmentVariableTask
+  ====================================================================================================================================================================================	-->
+  <UsingTask TaskName="SetEnvironmentVariableTask" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+    <Name ParameterType="System.String" Required="true" />
+    <Value ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+
+    <Task>
+    <Using Namespace="System" />
+    <Code Type="Fragment" Language="cs">
+      <![CDATA[
+      Environment.SetEnvironmentVariable(Name, Value);
+      ]]>
+    </Code>
+    </Task>
+  </UsingTask>
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    DownloadNuGet
+  ====================================================================================================================================================================================	-->
+  <UsingTask TaskName="DownloadNuGet" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+      <ParameterGroup>
+        <OutputFilename ParameterType="System.String" Required="true" />
+        <ForceDownload ParameterType="System.Boolean" Required="true" />
+      </ParameterGroup>
+      <Task>
+        <Reference Include="System.Core" />
+        <Using Namespace="System" />
+        <Using Namespace="System.IO" />
+        <Using Namespace="System.Net" />
+        <Using Namespace="Microsoft.Build.Framework" />
+        <Using Namespace="Microsoft.Build.Utilities" />
+        <Code Type="Fragment" Language="cs">
+            <![CDATA[
+            try 
+            {
+              OutputFilename = Path.GetFullPath(OutputFilename);
+              if(ForceDownload && File.Exists(OutputFilename))
+              {
+                Log.LogMessage(MessageImportance.High, "Force NuGet.exe download ... existing file will be deleted.");
+                File.Delete(OutputFilename);
+              }
+
+              if (!Directory.Exists(Path.GetDirectoryName(OutputFilename)))
+              {
+                Log.LogMessage(MessageImportance.High, "Create NuGet.exe directory {0}.", Path.GetDirectoryName(OutputFilename));
+                Directory.CreateDirectory(Path.GetDirectoryName(OutputFilename));
+              }
+              
+              Log.LogMessage(MessageImportance.High, "Downloading latest version of NuGet.exe...");
+              WebClient webClient = new WebClient();
+              webClient.DownloadFile("https://www.nuget.org/nuget.exe", OutputFilename);
+
+              return true;
+            }
+            catch (Exception ex) 
+            {
+              Log.LogMessage(MessageImportance.High, new string('*', 160));
+              Log.LogErrorFromException(ex);
+              Log.LogMessage(MessageImportance.High, new string('*', 160));
+              return false;
+            }
+        ]]>
+        </Code>
+      </Task>
+  </UsingTask>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    Detect NUnit failures  -> currently for NUnit 2 and NUnit 3
+  ====================================================================================================================================================================================	-->
+  <UsingTask TaskName="DetectTestFailureFromFile" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+      <File Required="true" />
+      <Version Required="true" />
+      <Failures ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <!-- for NUnit 2: XmlRead with <TestRunnerFailureXPath Condition="'$(TestRunnerFailureXPath)'==''">string(/test-results/test-suite/results//*[starts-with(name(),'failure')])</TestRunnerFailureXPath> -->
+      <Reference Include="System.Core" />
+      <Reference Include="System.Xml" />
+      <Reference Include="Microsoft.Build"/>
+      <Reference Include="Microsoft.Build.Framework"/>
+      <Using Namespace="System" />
+      <Using Namespace="System.Collections" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Using Namespace="System.Xml" />
+      <Using Namespace="Microsoft.Build.Evaluation"/>
+      <Using Namespace="Microsoft.Build.Execution"/>
+      <Using Namespace="Microsoft.Build.Utilities"/>
+      <Using Namespace="Microsoft.Build.Framework"/>
+      <!-- there are two files possible:
+        @(TestAssemblies->'$(TestResultsDirectory)\%(FileName).MsTestResults.xml')  	==> IsMSTest == true
+        @(TestAssemblies->'$(TestResultsDirectory)\%(FileName).NUnitTestResults.xml') 	==> IsNUnit == true
+      -->
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+        var list = new List<ITaskItem>();
+        try 
+        {
+          XmlDocument doc = new XmlDocument();
+          doc.Load(File);
+          
+                bool isMsTest = false;
+          bool isNUnitTest = false;
+          if (File.EndsWith("MsTestResults.xml", StringComparison.OrdinalIgnoreCase))
+          {
+            isMsTest = true;
+          }
+          else if (File.EndsWith("NUnitTestResults.xml", StringComparison.OrdinalIgnoreCase))
+          {
+            isNUnitTest = true;
+          }
+
+          if (isMsTest)
+          {
+            XmlNodeList nodes = doc.GetElementsByTagName("ErrorInfo");
+            int i = 0;
+            foreach (XmlNode node in nodes)
+            {
+              if (node.ParentNode != null && node.ParentNode.ParentNode != null && node.ParentNode != null && node["StackTrace"] != null && node["Message"] != null && node.ParentNode.ParentNode.Attributes != null)
+              {
+                var metadata = new Dictionary<string, string>();
+                XmlAttribute nameAttribute = node.ParentNode.ParentNode.Attributes["testName"];
+                var itemIdentity = nameAttribute == null ? string.Empty : nameAttribute.Value;
+                metadata.Add("Message", node["Message"].InnerText.TrimEnd('\r', '\n'));
+                metadata.Add("StackTrace", node["StackTrace"].InnerText.Trim());
+                metadata.Add("Number", (++i).ToString());
+
+                list.Add(new TaskItem(itemIdentity, metadata));
+              }
+            }
+          }
+          else if (isNUnitTest)
+          {
+            XmlNodeList nodes = doc.SelectNodes("//failure/message");
+            if (nodes == null)
+            {
+              Failures = list.ToArray();
+              return true;
+            }
+
+            int i = 0;
+            foreach (XmlNode node in nodes)
+            {
+              if (node.ParentNode != null && (node.ParentNode.ParentNode != null && (node.ParentNode != null && (node.ParentNode["stack-trace"] != null && node.ParentNode.ParentNode.Attributes != null))))
+              {
+                string itemIdentity;
+                var metadata = new Dictionary<string, string>();
+
+                XmlAttribute nameAttribute = node.ParentNode.ParentNode.Attributes["fullname"] ?? node.ParentNode.ParentNode.Attributes["name"];
+                itemIdentity = nameAttribute.Value;
+                // metadata.Add("Message", Regex.Replace(node.InnerText.TrimEnd('\r', '\n').Replace("\r\n"," ... "), @"\s+", " ", RegexOptions.Multiline).Trim());
+                metadata.Add("Message", node.InnerText.TrimEnd('\r', '\n'));
+                metadata.Add("StackTrace", node.ParentNode["stack-trace"].InnerText.Trim());
+                metadata.Add("Number", (++i).ToString());
+
+                list.Add(new TaskItem(itemIdentity, metadata));
+              }
+            }
+          }
+        }
+        catch (Exception ex)
+        {
+          Log.LogMessage(MessageImportance.High, new string('*', 160));
+          Log.LogMessage(MessageImportance.High, "E X C E P T I O N   I N   D E T E C T N U N I T F A I L U R E S");
+          Log.LogErrorFromException(ex);
+          Log.LogMessage(MessageImportance.High, new string('*', 160));
+        }
+        
+        
+        Failures = list.ToArray();
+        return true;
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    Filter List
+  ====================================================================================================================================================================================	-->
+  <UsingTask TaskName="FilterList" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll" >
+    <ParameterGroup>
+      <ListToFilter ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Filter Required="true" />
+      <FilteredList ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs">
+      <![CDATA[
+        var results = ListToFilter.Where(l => Regex.IsMatch(l.ItemSpec, Filter, RegexOptions.IgnoreCase)).ToList();
+        FilteredList = results.ToArray();
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    DelteAllSubDirectories
+  ====================================================================================================================================================================================	-->
+  <UsingTask TaskName="DelteAllSubDirectories" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll" >
+    <ParameterGroup>
+      <Folder Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Code Type="Fragment" Language="cs">
+      <![CDATA[
+        try
+        {
+          DirectoryInfo directoryInfo = new DirectoryInfo(Folder);
+          foreach (DirectoryInfo subfolder in directoryInfo.GetDirectories())
+          {
+            Directory.Delete(subfolder.FullName, true);
+          }
+        }
+        catch (Exception ex)
+        {
+          Log.LogMessage(MessageImportance.High, new string('*', 160));
+          Log.LogMessage(MessageImportance.High, "E X C E P T I O N   I N   D E LE T E A L L S U B D I R E C T O R I E S");
+          Log.LogErrorFromException(ex);
+          Log.LogMessage(MessageImportance.High, new string('*', 160));
+        }
+          
+        return true;
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!--
+  ====================================================================================================================================================================================
+                         FilterCandidatesBasedOnItemSpec
+  ====================================================================================================================================================================================
+  Description: 
+   Returns the items from the CandidateItemList for which there is an item with the same itemspec in the ItemSpecList.
+  ====================================================================================================================================================================================	-->
+   <UsingTask TaskName="FilterCandidatesBasedOnItemSpec" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll" >
+    <ParameterGroup>
+      <CandidateItemList ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <ItemSpecList ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Result ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+
+    <Task>
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+              var matches = from candidate in CandidateItemList
+              join spec in ItemSpecList
+              on candidate.ItemSpec.ToUpperInvariant() equals spec.ItemSpec.ToUpperInvariant()
+              select candidate;
+              
+              Result = matches.ToArray();
+      ]]>
+      </Code>
+    </Task>
+
+  </UsingTask>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    include all our Syntony tasks
+  ====================================================================================================================================================================================	-->
+  <Import Project="$(SyntonySharedSourcesDirectory)\Syntony.Common.tasks" Condition="Exists('$(SyntonySharedSourcesDirectory)\Syntony.Common.tasks')" />
+  
+</Project>

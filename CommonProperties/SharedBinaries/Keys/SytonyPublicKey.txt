@@ -1,0 +1,15 @@
+
+Microsoft (R) .NET Framework-Dienstprogramm für starke Namen
+Version 2.0.50727.42
+Copyright (c) Microsoft Corporation.  All rights reserved.
+
+Public Key: 
+0024000004800000940000000602000000240000525341310004000001000100a92205058259cd
+e2bb2d95f4332966b7790460f1a669a945057f2624ded894c558838528a07ac7193036ebe3b0d6
+a3a45864d5894d73897c2fc1a14fcde99aa82275475f6baa1fe7593f9168b8e0a8aefcc7ca66dd
+9c77c94b6d61585250a151d9b6521b5bd4ef331fd46870216caecc3732ebaeddd8b1b0dc61e57a
+fd8ca8be
+.
+Public Keytoken: b57f286edd2a0369
+
+Password for SyntonyKeyPair.pfx: czb83i9a

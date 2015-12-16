@@ -1,0 +1,498 @@
+<!--
+***********************************************************************************************
+Syntony.NuGet.targets
+***********************************************************************************************
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your Syntony projects from the command-line or the IDE.
+
+This file defines the steps in the standard build process specific for Syntony Framework projects.
+
+Copyright © 2013-2015 by Syntony - http://members.aon.at/hahnl - All rights reserved.
+
+By using the Import element, you can reuse code that is common to many project files. 
+This makes it easier to maintain the code because any updates you make to the shared code 
+get propagated to all the projects that import it.
+
+http://msdn.microsoft.com/en-us/library/92x05xfs.aspx
+http://msdn.microsoft.com/en-us/library/ms171464.aspx
+***********************************************************************************************
+-->
+
+<!-- this file is always stored in BRANCH\CommonProperties\SharedSources -->
+
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <Import Project="$(MSBuildThisFileDirectory)Syntony.Common.props" Condition="'$(CompanyPropsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.props')" />
+
+  <!-- This is used to determine whether Syntony.Common.targets needs to import Syntony.Common.props itself, or whether it has been imported previously, e.g. by the project itself. -->
+  <PropertyGroup>
+    <CompanyPropsHasBeenImported>true</CompanyPropsHasBeenImported>
+  </PropertyGroup>
+
+  
+  <Import Project="$(MSBuildThisFileDirectory)Syntony.Common.targets" Condition="'$(SyntonyCommonTargetsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.targets')" />
+
+
+  <!--
+  ====================================================================================================================================================================================
+                      SYNTONY NuGet properties
+  ====================================================================================================================================================================================	-->
+  <ItemGroup Condition=" '$(PackageSources)' == '' ">
+    <!-- Package sources used to restore packages. By default, registered sources under %APPDATA%\NuGet\NuGet.Config will be used -->
+    <!-- The official NuGet package source (https://www.nuget.org/api/v2/) will be excluded if package sources are specified and it does not appear in the list -->
+    <!--
+          <PackageSource Include="https://www.nuget.org/api/v2/" />
+          <PackageSource Include="https://my-nuget-source/nuget/" />
+      -->
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Windows specific commands -->
+    <NuGetToolsPath Condition=" '$(OS)' == 'Windows_NT' And ('$(Syntony)' == '' Or '$(Syntony)' == 'false')">$([System.IO.Path]::Combine($(SolutionDir), ".nuget"))</NuGetToolsPath>
+    <PackagesConfig Condition=" '$(OS)' == 'Windows_NT' And ('$(Syntony)' == '' Or '$(Syntony)' == 'false')">$([System.IO.Path]::Combine($(ProjectDir), "packages.config"))</PackagesConfig>
+
+    <!-- SYNTONY Windows specific commands -->
+    <NuGetToolsPath Condition=" '$(OS)' == 'Windows_NT' And '$(Syntony)' == 'true'">$(SyntonySharedToolsDirectory)</NuGetToolsPath>
+    <PackagesConfig Condition=" '$(OS)' == 'Windows_NT' And '$(Syntony)' == 'true'">$([System.IO.Path]::Combine($(ProjectDir), "packages.config"))</PackagesConfig>
+
+    <!-- We need to launch nuget.exe with the mono command if we're not on windows -->
+    <NuGetToolsPath Condition=" '$(OS)' != 'Windows_NT'">$(SolutionDir).nuget</NuGetToolsPath>
+    <PackagesConfig Condition=" '$(OS)' != 'Windows_NT'">packages.config</PackagesConfig>
+
+    <!-- Solution root for package restore. -->
+    <PaddedSolutionDir Condition=" $(PaddedSolutionDir) == ''">"$(SolutionDir.Trim('\\'))"</PaddedSolutionDir>
+
+    <!-- NuGet command -->
+    <!-- the NuGet application to be executed -->
+    <NuGetApp>NuGet.exe</NuGetApp>
+    <NuGetExePath Condition=" '$(NuGetExePath)' == '' ">$(NuGetToolsPath)\$(NuGetApp)</NuGetExePath>
+    <PackageSources Condition=" $(PackageSources) == '' ">@(PackageSource)</PackageSources>
+
+    <NuGetCommand Condition=" '$(OS)' == 'Windows_NT'">"$(NuGetExePath)"</NuGetCommand>
+    <NuGetCommand Condition=" '$(OS)' != 'Windows_NT' ">mono --runtime=v4.0.30319 $(NuGetExePath)</NuGetCommand>
+
+    <RequireConsentSwitch Condition=" $(RequireRestoreConsent) == 'true' ">-RequireConsent</RequireConsentSwitch>
+    <NonInteractiveSwitch Condition=" '$(VisualStudioVersion)' != '' AND '$(OS)' == 'Windows_NT' ">-NonInteractive</NonInteractiveSwitch>
+  </PropertyGroup>
+
+  <!--
+  ====================================================================================================================================================================================
+                      Create, Restore and Publish NuGetPackage
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <!-- Enable the restore command to run before builds -->
+    <RestorePackages Condition="  '$(RestorePackages)' == '' ">true</RestorePackages> <!-- set TRUE by default -->
+
+    <!-- Determines if package restore consent is required to restore packages -->
+    <RequireRestoreConsent Condition=" '$(RequireRestoreConsent)' != 'false' ">true</RequireRestoreConsent>
+
+    <!-- Property that enables building a package from a project -->
+    <!-- There are THREE properties evaluated to build a package. If only one is TRUE, the package will be build.
+      BuildPackage            property set inside *.csproj
+      BuildPackageSymbol      BUILD_PACKAGE defined in conditional compilation symbols (DefineConstants) inside Visual Studio
+      BuildPackageDefine      #define BUILD_PACKAGE inside an AssemblyInfo.cs file
+    -->
+    <BuildPackageSymbol Condition=" '$(BuildPackageSymbol)' == '' AND $([System.Text.RegularExpressions.Regex]::IsMatch($(DefineConstants), '^(.*;)*BUILD_PACKAGE(;.*)*$'))">true</BuildPackageSymbol>
+    <BuildPackage Condition=" '$(BuildPackage)' == ''">false</BuildPackage>
+    <BuildPackage Condition=" '$(BuildPackage)' == 'true' OR '$(BuildPackageSymbol)' == 'true' OR '$(BuildPackageDefineValue)' == 'true'">true</BuildPackage>
+
+    <DefaultBuildPackageConfiguration>Release</DefaultBuildPackageConfiguration>
+    <!-- to build for every configuration use $(Configuration) -->
+
+    <!-- Property that enables a project to be excluded from package creation -->
+    <SkipBuildPackage Condition=" '$(SkipBuildPackage)' == '' ">false</SkipBuildPackage>
+
+    <!-- Property that enables publishing a package from a project -->
+    <!-- There are THREE properties evaluated to build a package. If only one is TRUE, the package will be build.
+      PublishPackage            property set inside *.csproj
+      PublishPackageSymbol      PUBLISH_PACKAGE defined in conditional compilation symbols (DefineConstants) inside Visual Studio
+      PublishPackageDefine      #define PUBLISH_PACKAGE inside an AssemblyInfo.cs file
+    -->
+    <PublishPackageSymbol Condition=" '$(BuildPackageSymbol)' == '' AND $([System.Text.RegularExpressions.Regex]::IsMatch($(DefineConstants), '^(.*;)*PUBLISH_PACKAGE(;.*)*$'))">true</PublishPackageSymbol>
+    <PublishPackage Condition=" '$(PublishPackage)' == ''">false</PublishPackage>
+    <PublishPackage Condition=" '$(PublishPackage)' == 'true' OR '$(PublishPackageSymbol)' == 'true' OR '$(PublishPackageDefineValue)' == 'true'">true</PublishPackage>
+
+    <!-- Property that enables a project to be excluded from package publishing -->
+    <SkipPublishPackage Condition=" '$(SkipPublishPackage)' == '' ">false</SkipPublishPackage>
+
+    <!-- Download NuGet.exe if it does not already exist -->
+    <DownloadNuGetExe Condition=" '$(DownloadNuGetExe)' == '' ">true</DownloadNuGetExe>
+
+    <!-- Force download latest NuGet.exe -->
+    <ForceDownloadNuGetExe Condition=" '$(ForceDownloadNuGetExe)' == '' ">false</ForceDownloadNuGetExe>
+
+    <!-- the NuGet API key a7ee0033-d619-46e3-bb22-5cd487d1a648 is for Syntony -->
+    <NuGetApiKey Condition=" '$(NuGetApiKey)' == '' ">a7ee0033-d619-46e3-bb22-5cd487d1a648</NuGetApiKey>
+
+    <!-- the NuGet GalleryServiceUrl ... Specifies the server URL. If not specified, nuget.org is used unless DefaultPushSource config value is set in the NuGet config file. 
+      Starting with NuGet 2.5, if NuGet.exe identifies a UNC/folder source (like \\mycompany\repo\), it will perform the file copy to the source. -->
+    <NuGetGalleryServiceUrl Condition=" '$(NuGetGalleryServiceUrl)' == '' "></NuGetGalleryServiceUrl>
+
+    <NuSpecFile>$(MSBuildProjectName).nuspec</NuSpecFile>
+    <SyntonyPackageDir>$(SyntonySharedBinariesDirectory)\$(Company)\Packages</SyntonyPackageDir>
+    <!-- The directory where to save the NuGet package ... maybe to add "\$(Configuration)" -->
+  </PropertyGroup>
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyNuGetRestorePackages
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyNuGetRestorePackagesDependsOn>
+      BeforeSyntonyNuGetRestorePackages;
+      CoreSyntonyNuGetRestorePackages;
+      AfterSyntonyNuGetRestorePackages
+    </SyntonyNuGetRestorePackagesDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyNuGetRestorePackages" DependsOnTargets="$(SyntonyNuGetRestorePackagesDependsOn)" AfterTargets="BeforeBuild" Condition="'$(RestorePackages)' == 'true'">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <Target Name="CoreSyntonyNuGetRestorePackages" DependsOnTargets="ValidateNuGetPrerequisites">
+    <PropertyGroup>
+      <!-- Installs a package using the specified sources. If no sources are specified, all sources defined in %AppData%\NuGet\NuGet.config are used. If NuGet.config specifies no sources, uses the default NuGet feed. -->
+      <RestoreCommand Condition="'$(PackageSources)' != ''">$(NuGetCommand) install "$(PackagesConfig)" -Source "$(PackageSources)" $(NonInteractiveSwitch) $(RequireConsentSwitch) -SolutionDir $(PaddedSolutionDir)</RestoreCommand>
+      <RestoreCommand Condition="'$(PackageSources)' == ''">$(NuGetCommand) install "$(PackagesConfig)" $(NonInteractiveSwitch) $(RequireConsentSwitch) -solutionDir $(PaddedSolutionDir)</RestoreCommand>
+    </PropertyGroup>
+
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   R E S T O R E   P A C K A G E S   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="RestorePackages:       $(RestorePackages)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Syntony:               $(Syntony)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="PackagesConfig:        $(PackagesConfig)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="PackageSources:        $(PackageSources)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NonInteractiveSwitch:  $(NonInteractiveSwitch)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="RequireConsentSwitch:  $(RequireConsentSwitch)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="PaddedSolutionDir:     $(PaddedSolutionDir)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="RestoreCommand:        $(RestoreCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+
+    <Exec Command="$(RestoreCommand) > &quot;$(_OutputFile)&quot;"  ConsoleToMSBuild="true" EchoOff="true"  Condition="'$(OS)' != 'Windows_NT' And Exists('$(PackagesConfig)') AND '$(Silent)' =='true'" />
+    <Exec Command="$(RestoreCommand) > &quot;$(_OutputFile)&quot;" ConsoleToMSBuild="true" EchoOff="true" LogStandardErrorAsError="true" Condition="'$(OS)' == 'Windows_NT' AND Exists('$(PackagesConfig)') AND '$(Silent)' =='true'" />
+    <Exec Command="$(RestoreCommand)"  Condition="'$(OS)' != 'Windows_NT' And Exists('$(PackagesConfig)')" />
+    <Exec Command="$(RestoreCommand)" LogStandardErrorAsError="true" Condition="'$(OS)' == 'Windows_NT' AND Exists('$(PackagesConfig)')" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ValidateNuGetPrerequisites - prerequisites for NuGet
+  ====================================================================================================================================================================================	-->
+  <Target Name="ValidateNuGetPrerequisites">
+    <!-- Raise an error if we're unable to locate nuget.exe  -->
+    <Error Condition="('$(DownloadNuGetExe)' != 'true' OR '$(ForceDownloadNuGetExe)' != 'true')AND !Exists('$(NuGetExePath)')" Text="Unable to locate '$(NuGetExePath)'" />
+    
+    <!-- Take advantage of MsBuild's build dependency tracking to make sure that we only ever download nuget.exe once. This effectively acts as a lock that makes sure that the download operation will only happen once and all parallel builds will have to wait for it to complete. -->
+    <MsBuild Targets="_DownloadNuGet" Projects="$(MSBuildThisFileFullPath)" Properties="Configuration=NOT_IMPORTANT;DownloadNuGetExe=$(DownloadNuGetExe);ForceDownloadNuGetExe=$(ForceDownloadNuGetExe);SyntonyMessageImportance=$(SyntonyMessageImportance)" />
+    
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    DownloadNuGet from https://www.nuget.org/nuget.exe
+  ====================================================================================================================================================================================	-->
+  <Target Name="_DownloadNuGet">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   D O W N L O A D   N U G E T   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="DownloadNuGetExe:           $(DownloadNuGetExe)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="ForceDownloadNuGetExe:      $(ForceDownloadNuGetExe)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Syntony:                    $(Syntony)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuGetExePath:               $(NuGetExePath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Exists('NuGetExePath'):     true" Condition="Exists('$(NuGetExePath)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Exists('NuGetExePath'):     false" Condition="!Exists('$(NuGetExePath)')"/>
+
+    <DownloadNuGet OutputFilename="$(NuGetExePath)" ForceDownload="$(ForceDownloadNuGetExe)" SyntonyMessageImportance="$(SyntonyMessageImportance)" Condition=" ('$(DownloadNuGetExe)' == 'true' AND !Exists('$(NuGetExePath)')) OR '$(ForceDownloadNuGetExe)' == 'true'"/>
+
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSyntonyNuGetRestorePackages
+  Redefine this target in your project in order to run tasks just before CoreSyntonyNuGetRestorePackages
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSyntonyNuGetRestorePackages"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSyntonyNuGetRestorePackages
+  Redefine this target in your project in order to run tasks just after CoreSyntonyNuGetRestorePackages
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSyntonyNuGetRestorePackages"/>
+
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyNuGetBuildPackage
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyNuGetBuildPackageDependsOn>
+      InitSyntonyNuGetBuildPackage;
+      BeforeSyntonyNuGetBuildPackage;
+      ValidateSyntonyNuGetBuildPackage;
+      CoreSyntonyNuGetBuildPackage;
+      AfterSyntonyNuGetBuildPackage
+    </SyntonyNuGetBuildPackageDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyNuGetBuildPackage" DependsOnTargets="$(SyntonyNuGetBuildPackageDependsOn)" BeforeTargets="AfterBuild">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    InitSyntonyNuGetBuildPackage
+  ====================================================================================================================================================================================	-->
+  <Target Name="InitSyntonyNuGetBuildPackage">
+    <PropertyGroup>
+      <BuildPackageSymbol Condition=" '$(BuildPackageSymbol)' == '' AND $([System.Text.RegularExpressions.Regex]::IsMatch($(DefineConstants), '^(.*;)*BUILD_PACKAGE(;.*)*$'))">true</BuildPackageSymbol>
+      <BuildPackageDefineValue>false</BuildPackageDefineValue>
+    </PropertyGroup>
+    <ReadLinesFromFile File="$(TEMP)\BuildPackageDefine$(MsBuildPropertyToFileExtension)" Condition=" '$(BuildPackage)' != 'true' ">
+      <Output TaskParameter="Lines" PropertyName="BuildPackageDefineValue" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <BuildPackage Condition=" '$(BuildPackage)' == ''">false</BuildPackage>
+      <BuildPackage Condition=" '$(BuildPackage)' == 'true' OR '$(BuildPackageSymbol)' == 'true' OR '$(BuildPackageDefineValue)' == 'true'">true</BuildPackage>
+    </PropertyGroup>
+    <CreateProperty Value="$(BuildPackage)">
+      <Output TaskParameter="Value" PropertyName="BuildNuGetPackage"/>
+    </CreateProperty>
+
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ValidateSyntonyNuGetBuildPackage
+  ====================================================================================================================================================================================	-->
+  <Target Name="ValidateSyntonyNuGetBuildPackage" DependsOnTargets="ValidateNuGetPrerequisites">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   B U I L D   P A C K A G E   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="No package build will be performed. BuildNuGetPackage not set."  Condition="'$(BuildNuGetPackage)' == ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="No package build will be performed. BuildNuGetPackage set to '$(BuildNuGetPackage)'."  Condition="'$(BuildNuGetPackage)' != 'true' AND '$(BuildNuGetPackage)' != ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Build package skipped."  Condition="'$(SkipBuildPackage)' == 'true'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="No package build. Build package is performed for '$(DefaultBuildPackageConfiguration)' configuration only. Current configuration: '$(Configuration)|$(Platform)'."  Condition="'$(Configuration)' != '$(DefaultBuildPackageConfiguration)'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " Condition="'$(SkipBuildPackage)' == 'true' OR '$(BuildNuGetPackage)' != 'true' OR '$(Configuration)' != '$(DefaultBuildPackageConfiguration)'"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+
+  <!--
+  ====================================================================================================================================================================================
+                    CoreSyntonyNuGetBuildPackage
+  ====================================================================================================================================================================================	-->
+  <Target Name="CoreSyntonyNuGetBuildPackage" Condition="'$(SkipBuildPackage)' != 'true' AND '$(BuildNuGetPackage)' == 'true' AND '$(Configuration)' == '$(DefaultBuildPackageConfiguration)'">
+    <!-- http://ihadthisideaonce.com/2014/02/24/nuget-like-a-pro-the-msbuild-way/ -->
+    <GetAssemblyIdentity AssemblyFiles="$(OutputPath)$(AssemblyName).dll">
+      <Output TaskParameter="Assemblies" ItemName="OutputAssemblyInfo" />
+    </GetAssemblyIdentity>
+
+    <!-- Ensure the Package directory exists for this project -->
+    <PropertyGroup>
+      <PackageOutputDir Condition="$(PackageOutputDir) == '' And '$(Syntony)' == 'false'">$(TargetDir.Trim('\\'))</PackageOutputDir>
+      <!-- use output directory of target -->
+      <PackageOutputDir Condition="$(PackageOutputDir) == '' And '$(Syntony)' == 'true'">$(SyntonyPackageDir)</PackageOutputDir>
+
+      <!-- Creates a NuGet package based on the specified nuspec or project file. -->
+      <BuildCommand Condition="!Exists('$(NuSpecFile)') AND '$(PackageOutputDir)' != ''">$(NuGetCommand) pack "$(MSBuildProjectFile)" -Properties "Configuration=$(Configuration);Platform=$(Platform)" $(NonInteractiveSwitch) -OutputDirectory "$(PackageOutputDir)" -IncludeReferencedProjects -Verbosity Detailed -Version %(OutputAssemblyInfo.Version)</BuildCommand>
+      <BuildCommand Condition="!Exists('$(NuSpecFile)') AND '$(PackageOutputDir)' == ''">$(NuGetCommand) pack "$(MSBuildProjectFile)" -Properties "Configuration=$(Configuration);Platform=$(Platform)" $(NonInteractiveSwitch) -IncludeReferencedProjects -Symbols -Verbosity Detailed -Version %(OutputAssemblyInfo.Version)</BuildCommand>
+      <BuildCommand Condition="Exists('$(NuSpecFile)') AND '$(PackageOutputDir)' != ''">$(NuGetCommand) pack "$(NuSpecFile)" -Properties "Configuration=$(Configuration);Platform=$(Platform)" $(NonInteractiveSwitch) -OutputDirectory "$(PackageOutputDir)" -IncludeReferencedProjects -Symbols -Verbosity Detailed -Version %(OutputAssemblyInfo.Version)</BuildCommand>
+      <BuildCommand Condition="Exists('$(NuSpecFile)') AND '$(PackageOutputDir)' == ''">$(NuGetCommand) pack "$(NuSpecFile)" -Properties "Configuration=$(Configuration);Platform=$(Platform)" $(NonInteractiveSwitch) -IncludeReferencedProjects -Symbols -Verbosity Detailed -Version %(OutputAssemblyInfo.Version)</BuildCommand>
+    </PropertyGroup>
+
+    <!-- <RemoveDir Directories="$(PackageOutputDir)" /> -->
+    <MakeDir Directories="$(PackageOutputDir)" Condition = "!Exists('$(PackageOutputDir)')" />
+
+    <Message Importance="$(SyntonyMessageImportance)" Text="BuildPackage:         $(BuildPackage)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="BuildNuGetPackage:    $(BuildNuGetPackage)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NonInteractiveSwitch: $(NonInteractiveSwitch)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Syntony:              $(Syntony)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Version:              %(OutputAssemblyInfo.Version)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Name:                 %(OutputAssemblyInfo.Name)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="PublicKeyToken:       %(OutputAssemblyInfo.PublicKeyToken)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Culture:              %(OutputAssemblyInfo.Culture)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuSpecFile:           $(NuSpecFile) exists." Condition="Exists('$(NuSpecFile)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuSpecFile:           $(NuSpecFile) NOT exists." Condition="!Exists('$(NuSpecFile)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="PackageOutputDir:     $(PackageOutputDir)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Configuration:        $(Configuration)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Platform:             $(Platform)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="OS:                   $(OS)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="BuildCommand:         $(BuildCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+
+    <Exec Command="$(BuildCommand)" IgnoreExitCode="true" Condition=" '$(OS)' != 'Windows_NT' " />
+    <Exec Command="$(BuildCommand)" IgnoreExitCode="true" LogStandardErrorAsError="true" Condition=" '$(OS)' == 'Windows_NT' " />
+    <Exec Command="$(BuildCommand) > &quot;$(_OutputFile)&quot;" IgnoreExitCode="true" Condition=" '$(OS)' != 'Windows_NT' AND '$(Silent)' == 'true'" />
+    <Exec Command="$(BuildCommand) > &quot;$(_OutputFile)&quot;" IgnoreExitCode="true" LogStandardErrorAsError="true" Condition=" '$(OS)' == 'Windows_NT' AND '$(Silent)' == 'true'" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSyntonyNuGetBuildPackage
+  Redefine this target in your project in order to run tasks just before CoreSyntonyNuGetBuildPackage
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSyntonyNuGetBuildPackage"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSyntonyNuGetBuildPackage
+  Redefine this target in your project in order to run tasks just after CoreSyntonyNuGetBuildPackage
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSyntonyNuGetBuildPackage"/>
+
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    PublishPackage
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyNuGetPublishPackageDependsOn>
+      InitSyntonyNuGetPublishPackage;
+      BeforeSyntonyNuGetPublishPackage;
+      ValidateSyntonyNuGetPublishPackage;
+      CoreSyntonyNuGetPublishPackage;
+      AfterSyntonyNuGetPublishPackage
+    </SyntonyNuGetPublishPackageDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyNuGetPublishPackage" DependsOnTargets="$(SyntonyNuGetPublishPackageDependsOn)" BeforeTargets="SyntonyNuGetBuildPackage" Condition="'$(Configuration)' == '$(DefaultBuildPackageConfiguration)' AND Exists('$(OutputPath)$(AssemblyName).dll')">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    InitSyntonyNuGetPublishPackage
+  ====================================================================================================================================================================================	-->
+  <Target Name="InitSyntonyNuGetPublishPackage">
+    <PropertyGroup>
+      <PublishPackageSymbol Condition=" '$(BuildPackageSymbol)' == '' AND $([System.Text.RegularExpressions.Regex]::IsMatch($(DefineConstants), '^(.*;)*PUBLISH_PACKAGE(;.*)*$'))">true</PublishPackageSymbol>
+      <PublishPackageDefineValue>false</PublishPackageDefineValue>
+    </PropertyGroup>
+    <ReadLinesFromFile File="$(TEMP)\PublishPackageDefine$(MsBuildPropertyToFileExtension)" Condition=" '$(PublishPackage)' != 'true' ">
+      <Output TaskParameter="Lines" PropertyName="PublishPackageDefineValue" />
+    </ReadLinesFromFile>
+    
+    <PropertyGroup>
+      <PublishPackage Condition=" '$(PublishPackage)' == ''">false</PublishPackage>
+      <PublishPackage Condition=" '$(PublishPackage)' == 'true' OR '$(PublishPackageSymbol)' == 'true' OR '$(PublishPackageDefineValue)' == 'true'">true</PublishPackage>
+    </PropertyGroup>
+
+    <CreateProperty Value="$(PublishPackage)">
+      <Output TaskParameter="Value" PropertyName="PublishNuGetPackage"/>
+    </CreateProperty>
+    
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    ValidateSyntonyNuGetPublishPackage
+  ====================================================================================================================================================================================	-->
+  <Target Name="ValidateSyntonyNuGetPublishPackage">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   P U B L I S H   P A C K A G E   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="Publish package will be not performed. PublishNuGetPackage not set."  Condition="'$(PublishNuGetPackage)' == ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Publish package will be not performed. PublishNuGetPackage set to '$(PublishNuGetPackage)'."  Condition="'$(PublishNuGetPackage)' != 'true' AND '$(PublishNuGetPackage)' != ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Publish package skipped."  Condition="'$(SkipPublishPackage)' == 'true'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="No package build. Therefore publish package will be not performed. Build package is performed for 'Release' configuration only. Current configuration: '$(Configuration)|$(Platform)'."  Condition="'$(Configuration)' != 'Release'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Publish package." Condition="'$(PublishNuGetPackage)' == 'true' AND '$(SkipPublishPackage)' != 'true' AND '$(Configuration)' == '$(DefaultBuildPackageConfiguration)'"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    CoreSyntonyNuGetPublishPackage
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <CoreSyntonyNuGetPublishPackageDependsOn>
+      ValidateNuGetPrerequisites;
+    </CoreSyntonyNuGetPublishPackageDependsOn>
+  </PropertyGroup>
+  <Target Name="CoreSyntonyNuGetPublishPackage" DependsOnTargets="$(CoreSyntonyNuGetPublishPackageDependsOn)" Condition="'$(PublishNuGetPackage)' == 'true' AND '$(SkipPublishPackage)' != 'true' AND '$(Configuration)' == '$(DefaultBuildPackageConfiguration)'">
+    <GetAssemblyIdentity AssemblyFiles="$(OutputPath)$(AssemblyName).dll">
+      <Output TaskParameter="Assemblies" ItemName="OutputAssemblyInfo" />
+    </GetAssemblyIdentity>
+    <PropertyGroup>
+      <PackageOutputDir Condition="'$(PackageOutputDir)' == '' And '$(Syntony)' == 'false'">$(TargetDir.Trim('\\'))</PackageOutputDir> <!-- use output directory of target -->
+      <PackageOutputDir Condition="'$(PackageOutputDir)' == '' And '$(Syntony)' == 'true'">$(SyntonyPackageDir)</PackageOutputDir>
+      
+      <_Nupkg>$(PackageOutputDir)\$(AssemblyName).%(OutputAssemblyInfo.Version).nupkg</_Nupkg> <!-- the full path of the package to publish -->
+
+      <!-- Add PUBLISH package   https://gist.github.com/radleta/1049910         -->
+      <!-- Pushes a package to the server and publishes it. NuGet's default configuration is obtained by loading %AppData%\NuGet\NuGet.config, then loading any nuget.config or .nuget\nuget.config starting from root of drive and ending in current directory. -->
+      <!-- Publish the nupkg to the well known NuGet server 
+        Note: "NuGet setApiKey {put-your-api-key-here} -Source http://My_Nuget_Gallery_Service_Url/" must be run prior on the machine to ensure the api key is set correctly. -->
+      <PrePublishCommand Condition="'$(NuGetGalleryServiceUrl)' != ''">$(NuGetCommand) setApiKey "$(NuGetApiKey)" -Source $(NuGetGalleryServiceUrl)</PrePublishCommand> 
+      <PrePublishCommand Condition="'$(NuGetGalleryServiceUrl)' == ''">$(NuGetCommand) setApiKey "$(NuGetApiKey)"</PrePublishCommand> 
+      <PublishCommand Condition="'$(NuGetGalleryServiceUrl)' != ''">$(NuGetCommand) push "$(_Nupkg)" -Source $(NuGetGalleryServiceUrl)</PublishCommand>
+      <PublishCommand Condition="'$(NuGetGalleryServiceUrl)' == ''">$(NuGetCommand) push "$(_Nupkg)"</PublishCommand>
+      <DeleteCommand Condition="'$(NuGetGalleryServiceUrl)' != ''">$(NuGetCommand) delete $(AssemblyName) %(OutputAssemblyInfo.Version) -Source $(NuGetGalleryServiceUrl) -NonInteractive</DeleteCommand>
+      <DeleteCommand Condition="'$(NuGetGalleryServiceUrl)' == ''">$(NuGetCommand) delete $(AssemblyName) %(OutputAssemblyInfo.Version) -NonInteractive</DeleteCommand>
+      <!--
+        Der API-Schlüssel "a7ee0033-d619-46e3-bb22-5cd487d1a648" wurde für "der NuGet-Katalog (https://www.nuget.org)" und "der Symbolserver (http://nuget.gw.symbolsource.org/Public/NuGet)" gespeichert.
+        Syntony.Framework.Assistance 0.1.18812.0 wird mittels Push an der NuGet-Katalog (https://www.nuget.org) übertragen...
+        Ihr Paket wurde mittels Push übertragen.			-->
+      <!--
+       It's always a good idea to have a local copy of all your packages since as we've recently seen, there are times when NuGet goes down which could impact development or continuous builds
+       syncnuget.bat
+       for /f "usebackq tokens=*" %%n in (`dir /b /s packages\*.nupkg`) do copy "%%n" C:\Path\To\Repository /y
+      -->
+    </PropertyGroup>
+
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuGetCommand:           $(NuGetCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuGetApiKey:            $(NuGetApiKey)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NuGetGalleryServiceUrl: $(NuGetGalleryServiceUrl)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="AssemblyName:           $(AssemblyName)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Version:                %(OutputAssemblyInfo.Version)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Name:                   %(OutputAssemblyInfo.Name)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FullPackagePath:        $(_Nupkg) exists." Condition="Exists('$(_Nupkg)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="FullPackagePath:        $(_Nupkg) NOT exists." Condition="!Exists('$(_Nupkg)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="PrePublishCommand:      $(PrePublishCommand)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="PublishCommand:         $(PublishCommand)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="DeleteCommand:          $(DeleteCommand)" />     
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+
+    <Exec Command="$(PrePublishCommand)" IgnoreExitCode="true" Condition=" '$(OS)' != 'Windows_NT' AND Exists('$(_Nupkg)')"/>
+    <Exec Command="$(PrePublishCommand)" IgnoreExitCode="true" LogStandardErrorAsError="true" Condition=" '$(OS)' == 'Windows_NT' AND Exists('$(_Nupkg)')"/>
+    <Exec Command="$(PublishCommand)" IgnoreExitCode="true" Condition=" '$(OS)' != 'Windows_NT' AND Exists('$(_Nupkg)')" />
+    <Exec Command="$(PublishCommand)" IgnoreExitCode="true" LogStandardErrorAsError="true" Condition=" '$(OS)' == 'Windows_NT' AND Exists('$(_Nupkg)')" />
+    
+    <Exec Command="$(PrePublishCommand) > &quot;$(_OutputFile)&quot;" IgnoreExitCode="true" Condition=" '$(OS)' != 'Windows_NT' AND Exists('$(_Nupkg)') AND '$(Silent)' =='true'"/>
+    <Exec Command="$(PrePublishCommand) > &quot;$(_OutputFile)&quot;" IgnoreExitCode="true" LogStandardErrorAsError="true" Condition=" '$(OS)' == 'Windows_NT' AND Exists('$(_Nupkg)') AND '$(Silent)' =='true'"/>
+    <Exec Command="$(PublishCommand) > &quot;$(_OutputFile)&quot;" IgnoreExitCode="true" Condition=" '$(OS)' != 'Windows_NT' AND Exists('$(_Nupkg)') AND '$(Silent)' =='true'" />
+    <Exec Command="$(PublishCommand) > &quot;$(_OutputFile)&quot;" IgnoreExitCode="true" LogStandardErrorAsError="true" Condition=" '$(OS)' == 'Windows_NT' AND Exists('$(_Nupkg)') AND '$(Silent)' =='true'" />
+
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  
+  
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSyntonyNuGetPublishPackage
+  Redefine this target in your project in order to run tasks just before CoreSyntonyNuGetPublishPackage
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSyntonyNuGetPublishPackage"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSyntonyNuGetPublishPackage
+  Redefine this target in your project in order to run tasks just after CoreSyntonyNuGetPublishPackage
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSyntonyNuGetPublishPackage"/>
+
+</Project>

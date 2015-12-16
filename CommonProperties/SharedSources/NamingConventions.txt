@@ -1,0 +1,4 @@
+﻿bool CheckXyz(...)  ... checks a state and returns TRUE if this state is currently available / set.
+
+void VerifyXyz(...) ... throws an exception  => if (!CheckXyz(...)) { throw new Exception(); }
+

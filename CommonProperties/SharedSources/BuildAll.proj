@@ -1,0 +1,73 @@
+<!--
+***********************************************************************************************
+BuildAll.proj
+***********************************************************************************************
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your Syntony projects from the command-line or the IDE.
+
+This file defines the steps in the standard build process specific for Syntony Framework projects.
+
+Copyright © 2013-2015 by Syntony - http://members.aon.at/hahnl - All rights reserved.
+
+By using the Import element, you can reuse code that is common to many project files. 
+This makes it easier to maintain the code because any updates you make to the shared code 
+get propagated to all the projects that import it.
+
+http://msdn.microsoft.com/en-us/library/92x05xfs.aspx
+http://msdn.microsoft.com/en-us/library/ms171464.aspx
+***********************************************************************************************
+-->
+
+<!-- this file is always stored in BRANCH\CommonProperties\SharedSources -->
+<!--
+  The purpose of the is to demonstrate how we can build different VS
+  projects and copy the output to a given directory.
+-->
+<Project DefaultTargets="BuildAll" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <DestFolder>Deploy\</DestFolder>
+    <Configuration>Release</Configuration>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectsToBuild Include="**\*proj" Exclude="$(MSBuildProjectFile)"/>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <BuildAllDependsOn>CleanAll;CoreBuild;CopyFiles</BuildAllDependsOn>
+  </PropertyGroup>
+  <Target Name="BuildAll" DependsOnTargets="$(BuildAllDependsOn)"/>
+
+  <Target Name="CoreBuild">
+    <MSBuild Projects ="@(ProjectsToBuild)" 
+             ContinueOnError ="false" 
+             Properties="Configuration=$(Configuration)">
+        <Output ItemName="OutputFiles" TaskParameter="TargetOutputs"/>
+    </MSBuild>
+  </Target>
+
+  <Target Name="CopyFiles">
+    <Copy SourceFiles="@(OutputFiles)" 
+          DestinationFiles="@(OutputFiles->'$(DestFolder)%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+
+
+  <!--
+  This target can be used to clean all of the projects before you build them.
+  It will also delete any dll & exe files located in the the Deploy folder. This could be accomplished
+  much better than this, but this is quick and easy.
+  -->
+  <Target Name="CleanAll">
+    <!-- Delete any files this process may have created from a previous execution -->
+    <CreateItem Include="$(DestFolder)\**\*exe;$(DestFolder)\**\*dll">
+      <Output ItemName="GeneratedFiles" TaskParameter="Include"/>
+    </CreateItem>
+    <Delete Files="@(GeneratedFiles)"/>
+    <MSBuild Projects="@(ProjectsToBuild)" Targets="Clean" Properties="Configuration=$(Configuration);"/>
+  </Target>
+  <!-- Will simply print all of the project files to be built -->
+  <Target Name="PrintAll">
+    <Message Text="Project files:%0d%0a@(ProjectsToBuild,'%0d%0a')" Importance="high"/>
+  </Target>
+</Project>

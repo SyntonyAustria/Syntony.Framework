@@ -1,0 +1,1 @@
+Contains solution product documentation (from all sub-projects)

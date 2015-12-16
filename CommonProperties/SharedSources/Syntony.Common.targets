@@ -1,0 +1,637 @@
+<!--
+***********************************************************************************************
+Syntony.Common.targets
+***********************************************************************************************
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your Syntony projects from the command-line or the IDE.
+
+This file defines the steps in the standard build process specific for Syntony Framework projects.
+
+Copyright © 2013-2015 by Syntony - http://members.aon.at/hahnl - All rights reserved.
+
+By using the Import element, you can reuse code that is common to many project files. 
+This makes it easier to maintain the code because any updates you make to the shared code 
+get propagated to all the projects that import it.
+
+http://msdn.microsoft.com/en-us/library/92x05xfs.aspx
+http://msdn.microsoft.com/en-us/library/ms171464.aspx
+***********************************************************************************************
+-->
+
+<!-- this file is always stored in BRANCH\CommonProperties\SharedSources -->
+
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <Import Project="$(MSBuildThisFileDirectory)Syntony.Common.props" Condition="'$(CompanyPropsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.props')" />
+
+  <!-- This is used to determine whether other Syntony targets (Syntony.*.targets) needs to import Syntony.Common.targets itself, or whether it has been imported previously, e.g. by the project itself. -->
+  <PropertyGroup>
+    <SyntonyCommonTargetsHasBeenImported>true</SyntonyCommonTargetsHasBeenImported>
+  </PropertyGroup>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyValidateStartup
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyValidateStartup" >
+    <Error Condition="'$(Company)'==''" Text="Company property not defined."/>
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                      All SyntonyBefore- and SyntonyAfter-Targets
+  ====================================================================================================================================================================================	-->
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyBeforeBuild
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyBeforeBuild" DependsOnTargets="CompanyLogo" BeforeTargets="BeforeBuild" Condition="'$(Company)' == 'Syntony'">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   B E F O R E   B U I L D"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyAfterBuild
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyAfterBuild" AfterTargets="AfterBuild" Condition="'$(Company)' == 'Syntony'">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   A F T E R   B U I L D"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <PropertyGroup>
+      <FinishTicks>$([System.DateTime]::UtcNow.Ticks)</FinishTicks>
+      <ElapsedTicks>$([MSBuild]::Subtract($(FinishTicks), $(StartTicks)))</ElapsedTicks>
+      <Elapsed>$([System.TimeSpan]::FromTicks($(ElapsedTicks)).ToString("s\.fff")) seconds</Elapsed>
+    </PropertyGroup>
+    <MSBuild Projects="$(MSBuildProjectFile)" Properties="Elapsed=$(Elapsed)" Targets="SyntonyShowElapsedTime"/>
+  </Target>
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyBeforeRebuild
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyBeforeRebuild" DependsOnTargets="CompanyLogo" BeforeTargets="BeforeRebuild" Condition="'$(Company)' == 'Syntony'">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   B E F O R E   R E B U I L D"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyAfterRebuild
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyAfterRebuild" AfterTargets="AfterRebuild" Condition="'$(Company)' == 'Syntony'">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   A F T E R   R E B U I L D"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <PropertyGroup>
+      <FinishTicks>$([System.DateTime]::UtcNow.Ticks)</FinishTicks>
+      <ElapsedTicks>$([MSBuild]::Subtract($(FinishTicks), $(StartTicks)))</ElapsedTicks>
+      <Elapsed>$([System.TimeSpan]::FromTicks($(ElapsedTicks)).ToString("s\.fff")) seconds</Elapsed>
+    </PropertyGroup>
+    <MSBuild Projects="$(MSBuildProjectFile)" Properties="Elapsed=$(Elapsed)" Targets="SyntonyShowElapsedTime"/>
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyBeforeClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyBeforeClean" DependsOnTargets="CompanyLogo" BeforeTargets="BeforeClean" Condition="'$(Company)' == 'Syntony'">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   B E F O R E   C L E A N"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyAfterClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyAfterClean" AfterTargets="AfterClean" Condition="'$(Company)' == 'Syntony'">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   A F T E R   C L E A N"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <PropertyGroup>
+      <FinishTicks>$([System.DateTime]::UtcNow.Ticks)</FinishTicks>
+      <ElapsedTicks>$([MSBuild]::Subtract($(FinishTicks), $(StartTicks)))</ElapsedTicks>
+      <Elapsed>$([System.TimeSpan]::FromTicks($(ElapsedTicks)).ToString("s\.fff")) seconds</Elapsed>
+    </PropertyGroup>
+    <MSBuild Projects="$(MSBuildProjectFile)" Properties="Elapsed=$(Elapsed)" Targets="SyntonyShowElapsedTime"/>
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyShowElapsedTime
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyShowElapsedTime" >
+    <Message Importance="high" Text=" " />
+    <Message Importance="high" Text="$(SyntonySeparator)" />
+    <Message Importance="high" Text="Elapsed time: $(Elapsed)"/>
+    <Message Importance="high" Text="$(SyntonySeparator)" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    CompanyLogo
+  ====================================================================================================================================================================================	-->
+  <Target Name="CompanyLogo" DependsOnTargets="SyntonyValidateStartup" Condition="'$(Company)' != ''">
+    <CallTarget Targets="SyntonyLogo1"/>
+    <Message Text="$(AssemblyName)" Importance="high" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ASCII SYNTONY http://patorjk.com/software/taag/#p=testall&f=Avatar&t=Syntony
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyLogo1" Condition="'$(Company)' == 'Syntony'">
+    <Message Text="  ______                                   " Importance="high" />
+    <Message Text=" / _____)             _                    " Importance="high" />
+    <Message Text="( (____  _   _ ____ _| |_ ___  ____  _   _ " Importance="high" />
+    <Message Text=" \____ \| | | |  _ (_   _) _ \|  _ \| | | |" Importance="high" />
+    <Message Text=" _____) ) |_| | | | || || |_| | | | | |_| |" Importance="high" />
+    <Message Text="(______/ \__  |_| |_| \__)___/|_| |_|\__  |" Importance="high" />
+    <Message Text="        (____/                      (____/ " Importance="high" />
+  </Target>
+  <Target Name="SyntonyLogo2" Condition="'$(Company)' == 'Syntony'">
+    <Message Text="   ___|                 |                        " Importance="high" />
+    <Message Text=" \___ \   |   |  __ \   __|   _ \   __ \   |   | " Importance="high" />
+    <Message Text="       |  |   |  |   |  |    (   |  |   |  |   | " Importance="high" />
+    <Message Text=" _____/  \__, | _|  _| \__| \___/  _|  _| \__, | " Importance="high" />
+    <Message Text="         ____/                            ____/  " Importance="high" />
+  </Target>
+  <Target Name="SyntonyLogo3" Condition="'$(Company)' == 'Syntony'">
+    <Message Text="   _____             _                    " Importance="high" />
+    <Message Text="  / ____|           | |                   " Importance="high" />
+    <Message Text=" | (___  _   _ _ __ | |_ ___  _ __  _   _ " Importance="high" />
+    <Message Text="  \___ \| | | | '_ \| __/ _ \| '_ \| | | |" Importance="high" />
+    <Message Text="  ____) | |_| | | | | || (_) | | | | |_| |" Importance="high" />
+    <Message Text=" |_____/ \__, |_| |_|\__\___/|_| |_|\__, |" Importance="high" />
+    <Message Text="          __/ |                      __/ |" Importance="high" />
+    <Message Text="         |___/                      |___/ " Importance="high" />
+  </Target>
+  <Target Name="SyntonyLogo4" Condition="'$(Company)' == 'Syntony'">
+    <Message Text=" __             _                    " Importance="high" />
+    <Message Text="/ _\_   _ _ __ | |_ ___  _ __  _   _ " Importance="high" />
+    <Message Text="\ \| | | | '_ \| __/ _ \| '_ \| | | |" Importance="high" />
+    <Message Text="_\ \ |_| | | | | || (_) | | | | |_| |" Importance="high" />
+    <Message Text="\__/\__, |_| |_|\__\___/|_| |_|\__, |" Importance="high" />
+    <Message Text="    |___/                      |___/ " Importance="high" />
+  </Target>
+
+  <Target Name="SyntonyLogo4" Condition="'$(Company)' == 'Syntony'">
+    <Message Importance="high" Text="$(SyntonySeparator)" />
+    <Message Text="                                                                                                                                        " Importance="high" />
+    <Message Text="   SSSSSSSSSSSSSSS                                               tttt                                                                   " Importance="high" />
+    <Message Text=" SS:::::::::::::::S                                           ttt:::t                                                                   " Importance="high" />
+    <Message Text="S:::::SSSSSS::::::S                                           t:::::t                                                                   " Importance="high" />
+    <Message Text="S:::::S     SSSSSSS                                           t:::::t                                                                   " Importance="high" />
+    <Message Text="S:::::S      yyyyyyy           yyyyyyynnnn  nnnnnnnn    ttttttt:::::ttttttt       ooooooooooo   nnnn  nnnnnnnn yyyyyyy           yyyyyyy" Importance="high" />
+    <Message Text="S:::::S       y:::::y         y:::::y n:::nn::::::::nn  t:::::::::::::::::t     oo:::::::::::oo n:::nn::::::::nny:::::y         y:::::y " Importance="high" />
+    <Message Text=" S::::SSSS     y:::::y       y:::::y  n::::::::::::::nn t:::::::::::::::::t    o:::::::::::::::on::::::::::::::nny:::::y       y:::::y  " Importance="high" />
+    <Message Text="  SS::::::SSSSS y:::::y     y:::::y   nn:::::::::::::::ntttttt:::::::tttttt    o:::::ooooo:::::onn:::::::::::::::ny:::::y     y:::::y   " Importance="high" />
+    <Message Text="    SSS::::::::SSy:::::y   y:::::y      n:::::nnnn:::::n      t:::::t          o::::o     o::::o  n:::::nnnn:::::n y:::::y   y:::::y    " Importance="high" />
+    <Message Text="       SSSSSS::::Sy:::::y y:::::y       n::::n    n::::n      t:::::t          o::::o     o::::o  n::::n    n::::n  y:::::y y:::::y     " Importance="high" />
+    <Message Text="            S:::::Sy:::::y:::::y        n::::n    n::::n      t:::::t          o::::o     o::::o  n::::n    n::::n   y:::::y:::::y      " Importance="high" />
+    <Message Text="            S:::::S y:::::::::y         n::::n    n::::n      t:::::t    tttttto::::o     o::::o  n::::n    n::::n    y:::::::::y       " Importance="high" />
+    <Message Text="SSSSSSS     S:::::S  y:::::::y          n::::n    n::::n      t::::::tttt:::::to:::::ooooo:::::o  n::::n    n::::n     y:::::::y        " Importance="high" />
+    <Message Text="S::::::SSSSSS:::::S   y:::::y           n::::n    n::::n      tt::::::::::::::to:::::::::::::::o  n::::n    n::::n      y:::::y         " Importance="high" />
+    <Message Text="S:::::::::::::::SS   y:::::y            n::::n    n::::n        tt:::::::::::tt oo:::::::::::oo   n::::n    n::::n     y:::::y          " Importance="high" />
+    <Message Text=" SSSSSSSSSSSSSSS    y:::::y             nnnnnn    nnnnnn          ttttttttttt     ooooooooooo     nnnnnn    nnnnnn    y:::::y           " Importance="high" />
+    <Message Text="                   y:::::y                                                                                           y:::::y            " Importance="high" />
+    <Message Text="                  y:::::y                                                                                           y:::::y             " Importance="high" />
+    <Message Text="                 y:::::y                                                                                           y:::::y              " Importance="high" />
+    <Message Text="                y:::::y                                                                                           y:::::y               " Importance="high" />
+    <Message Text="               yyyyyyy                                                                                           yyyyyyy                " Importance="high" />
+    <Message Text="                                                                                                                                        " Importance="high" />
+    <Message Importance="high" Text="$(SyntonySeparator)" />
+  </Target>
+
+
+
+
+  <!--
+  ====================================================================================================================================================================================
+                    ShowReservedProperties
+  ====================================================================================================================================================================================	-->
+  <Target Name="ShowReservedProperties" AfterTargets="BeforeBuild">  
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   R E S E R V E D   A N D   W E L L K N O W N   P R O P E R T I E S" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuild:                        $(MSBuild)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildBinPath:                 $(MSBuildBinPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildExtensionsPath:          $(MSBuildExtensionsPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildExtensionsPath32:        $(MSBuildExtensionsPath32)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildExtensionsPath64:        $(MSBuildExtensionsPath64)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildLastTaskResult:          $(MSBuildLastTaskResult)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildNodeCount:               $(MSBuildNodeCount)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildOverrideTasksPath:       $(MSBuildOverrideTasksPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProgramFiles32:          $(MSBuildProgramFiles32)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectDirectory:        $(MSBuildProjectDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectDirectoryNoRoot:  $(MSBuildProjectDirectoryNoRoot)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectFullPath:         $(MSBuildProjectFullPath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectFile:             $(MSBuildProjectFile)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectName:             $(MSBuildProjectName)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectExtension:        $(MSBuildProjectExtension)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildToolsPath:               $(MSBuildToolsPath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildProjectDefaultTargets:   $(MSBuildProjectDefaultTargets)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildStartupDirectory:        $(MSBuildStartupDirectory)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFileDirectory:       $(MSBuildThisFileDirectory)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFileDirectoryNoRoot: $(MSBuildThisFileDirectoryNoRoot)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFileFullPath:        $(MSBuildThisFileFullPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFile:                $(MSBuildThisFile)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFileName:            $(MSBuildThisFileName)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildThisFileExtension:       $(MSBuildThisFileExtension)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildToolsPath:               $(MSBuildToolsPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSBuildToolsVersion:            $(MSBuildToolsVersion)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ShowSyntonyProperties
+  ====================================================================================================================================================================================	-->
+  <Target Name="ShowSyntonyProperties" AfterTargets="BeforeBuild">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+    <Message Importance="$(SyntonyMessageImportance)" Text="StartTicks:                     $(StartTicks)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Now:                            $(Now)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Today:                          $(Today)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Syntony:                        $(Syntony)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Company:                        $(Company)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonyCommonDrive:             $(SyntonyCommonDrive)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="ProjectDrive:                   $(ProjectDrive)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SameDrive:                      $(SameDrive)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonySharedSourcesDirectory:  $(SyntonySharedSourcesDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonySharedBinariesDirectory: $(SyntonySharedBinariesDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonySharedToolsDirectory:    $(SyntonySharedToolsDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SourceDirectory:                $(SourceDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="BranchDirectory:                $(BranchDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="SolutionDir:                    $(SolutionDir)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TEMP:                           $(TEMP)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MsBuildPropertyToFileExtension: $(MsBuildPropertyToFileExtension)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="BuildDependsOn:                 @(BuildDependsOn)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />   
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyAnalyzeAssemblyInfoFiles
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyAnalyzeAssemblyInfoFiles" AfterTargets="PreBuildEvent" Outputs="@(_ToDelete)">
+    <PropertyGroup>
+      <Pattern>AssemblyInfo\.cs$</Pattern>
+    </PropertyGroup>
+    <ItemGroup>
+      <!--
+      There are a few properties that can be defined inside 
+      CompanyAssemblyInfo (Syntony.AssemblyInfo.cs) in $(SyntonySharedSourcesDirectory) directory or
+      CompanyFrameworkAssemblyInfo (Syntony.Framework.AssemblyInfo.cs) in $(SyntonySharedSourcesDirectory) directory or
+      ProjectAssemblyInfo (Syntony.MSBuildProjectName.AssemblyInfo.cs) in $(MSBuildProjectDirectory)\Properties directory or
+      CompanyProjectVersionAssemblyInfo (Syntony.MSBuildProjectName.Version.AssemblyInfo.cs) in $(MSBuildProjectDirectory)\Properties directory or
+      AssemblyInfo (AssemblyInfo.cs) in $(MSBuildProjectDirectory)\Properties directory:
+      
+      CreateNuGetPackage is set to true if  #define BUILD_PACKAGE is found
+      AssemblyDescription
+      AssemblyProduct
+      AssemblyCompany
+      AssemblyCopyright
+      AssemblyConfiguration
+      AssemblyVersionMajor
+      AssemblyVersionMinor
+      AssemblyVersionBuild
+      AssemblyVersionRevision
+      -->
+      <!-- Get all *AssemblyInfo.cs files -->
+      <AllIncludedAssemblyInfoFiles Include="%(Compile.Identity)" Condition="Exists('%(FullPath)') And %(Extension) == '.cs' And $([System.Text.RegularExpressions.Regex]::IsMatch('%(FullPath)', '$(Pattern)', System.Text.RegularExpressions.RegexOptions.IgnoreCase))"/>
+    </ItemGroup>
+    <Message Importance="$(SyntonyMessageImportance)" Text="SyntonyAnalyzeAssemblyInfoFiles: @(AllIncludedAssemblyInfoFiles)" />
+
+    <!-- Call CheckOneAssemblyInfoFile for each file in AllIncludedAssemblyInfoFiles -->
+    <MSBuild Projects="$(MSBuildProjectFile)" Properties="CurrentAssemblyInfoFile=%(AllIncludedAssemblyInfoFiles.Identity)" Targets="CheckOneAssemblyInfoFile" />
+
+    <ItemGroup>
+      <_ToDelete Include="$(TEMP)\*$(MsBuildPropertyToFileExtension)"/>
+    </ItemGroup>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   A V A I L A B L E   P R O P E R T Y - F I L E S" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="%(_ToDelete.FullPath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!-- This target checks the current analyzed file $(CurrentAssemblyInfoFile) if it exists -->
+  <Target Name="CheckOneAssemblyInfoFile" Condition="Exists('$(CurrentAssemblyInfoFile)')">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " /> 
+    <Message Importance="$(SyntonyMessageImportance)" Text="CurrentAssemblyInfoFilen to check:  $(CurrentAssemblyInfoFile)" /> 
+    <PropertyGroup>
+      <!-- original one <VersionPattern>\(\D*(\d+)\.(\d+)\.(\d+)\.(\d+)</VersionPattern> -->
+      <VersionPattern>\(\D*(\d+)\.(\d+)\.(\d+)</VersionPattern> <!-- \(\D*(\d+)(?:\.\d+)(?:\.\d+)(?:\.\d+) -->
+      <StringPattern>\(\s*"([^"]+)</StringPattern>
+      <BuildNuGetPackagePattern>^\s*#define\s*(BUILD_PACKAGE)\b</BuildNuGetPackagePattern>
+      <PublishNuGetPackagePattern>^\s*#define\s*(PUBLISH_PACKAGE)\b</PublishNuGetPackagePattern>
+      <RunTestsPattern>^\s*#define\s*(RUN_TESTS)\b</RunTestsPattern>
+      <BuildDocumentationPattern>^\s*#define\s*(BUILD_DOCUMENTATION)\b</BuildDocumentationPattern>
+      <In>$([System.IO.File]::ReadAllText('$(CurrentAssemblyInfoFile)'))</In>
+      <_BuildPackageDefine Condition=" '$(BuildPackage)' == '' Or '$(BuildPackage.ToLower())' == 'false'">$([System.Text.RegularExpressions.Regex]::Match($(In), $(BuildNuGetPackagePattern), System.Text.RegularExpressions.RegexOptions.Multiline | RegexOptions.IgnoreCase).Success.ToString().ToLower())</_BuildPackageDefine>
+      <_PublishPackageDefine Condition=" '$(PublishPackage)' == '' Or '$(PublishPackage.ToLower())' == 'false'">$([System.Text.RegularExpressions.Regex]::Match($(In), $(PublishNuGetPackagePattern), System.Text.RegularExpressions.RegexOptions.Multiline | RegexOptions.IgnoreCase).Success.ToString().ToLower())</_PublishPackageDefine>
+      <_RunTestsDefine Condition=" '$(RunTests)' == '' Or '$(RunTests.ToLower())' == 'false'">$([System.Text.RegularExpressions.Regex]::Match($(In), $(RunTestsPattern), System.Text.RegularExpressions.RegexOptions.Multiline | RegexOptions.IgnoreCase).Success.ToString().ToLower())</_RunTestsDefine>
+      <_BuildDocumentationDefine Condition=" '$(BuildDocumentation)' == '' Or '$(BuildDocumentation.ToLower())' == 'false'">$([System.Text.RegularExpressions.Regex]::Match($(In), $(BuildDocumentationPattern), System.Text.RegularExpressions.RegexOptions.Multiline | RegexOptions.IgnoreCase).Success.ToString().ToLower())</_BuildDocumentationDefine>
+      <Pattern>^\s*\[assembly:\s*AssemblyDescription$(StringPattern)"</Pattern>
+      <_AssemblyDescription Condition=" '$(AssemblyDescription)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyDescription>
+      <Pattern>^\s*\[assembly:\s*AssemblyProduct$(StringPattern)"</Pattern>
+      <_AssemblyProduct Condition=" '$(AssemblyProduct)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyProduct>
+      <Pattern>^\s*\[assembly:\s*AssemblyCompany$(StringPattern)"</Pattern>
+      <_AssemblyCompany Condition=" '$(AssemblyCompany)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyCompany>
+      <Pattern>^\s*\[assembly:\s*AssemblyCopyright$(StringPattern)"</Pattern>
+      <_AssemblyCopyright Condition=" '$(AssemblyCopyright)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyCopyright>
+      <Pattern>^\s*\[assembly:\s*AssemblyConfiguration$(StringPattern)"</Pattern>
+      <_AssemblyConfiguration Condition=" '$(AssemblyConfiguration)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyConfiguration>
+      <Pattern>^\s*\[assembly:\s*AssemblyVersion\(\D*(\d+)</Pattern>
+      <_AssemblyVersionMajor Condition=" '$(AssemblyVersionMajor)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value)</_AssemblyVersionMajor>
+      <Pattern>^\s*\[assembly:\s*AssemblyVersion\(\D*(\d+)\.(\d+)</Pattern>
+      <_AssemblyVersionMinor Condition=" '$(AssemblyVersionMinor)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[2].Value)</_AssemblyVersionMinor>
+      <Pattern>^\s*\[assembly:\s*AssemblyVersion\(\D*(\d+)\.(\d+)\.(\d+)</Pattern>
+      <_AssemblyVersionBuild Condition=" '$(AssemblyVersionBuild)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[3].Value)</_AssemblyVersionBuild>
+      <Pattern>^\s*\[assembly:\s*AssemblyVersion\(\D*(\d+)\.(\d+)\.(\d+)\.(\d+)</Pattern>
+      <_AssemblyVersionRevision Condition=" '$(AssemblyVersionRevision)' == '' ">$([System.Text.RegularExpressions.Regex]::Match($(In), $(Pattern), System.Text.RegularExpressions.RegexOptions.Multiline).Groups[4].Value)</_AssemblyVersionRevision>
+    </PropertyGroup>
+
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=BuildPackageDefine;SyntonyPropertyValue=$(_BuildPackageDefine)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=PublishPackageDefine;SyntonyPropertyValue=$(_PublishPackageDefine)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=RunTestsDefine;SyntonyPropertyValue=$(_RunTestsDefine)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=BuildDocumentationDefine;SyntonyPropertyValue=$(_BuildDocumentationDefine)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyDescription;SyntonyPropertyValue=$(_AssemblyDescription)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyProduct;SyntonyPropertyValue=$(_AssemblyProduct)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyCompany;SyntonyPropertyValue=$(_AssemblyCompany)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyCopyright;SyntonyPropertyValue=$(_AssemblyCopyright)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyConfiguration;SyntonyPropertyValue=$(_AssemblyConfiguration)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyVersionMajor;SyntonyPropertyValue=$(_AssemblyVersionMajor)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyVersionMinor;SyntonyPropertyValue=$(_AssemblyVersionMinor)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyVersionBuild;SyntonyPropertyValue=$(_AssemblyVersionBuild)" Targets="WriteToFile" />
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=AssemblyVersionRevision;SyntonyPropertyValue=$(_AssemblyVersionRevision)" Targets="WriteToFile" />
+
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!--
+  ====================================================================================================================================================================================
+                      WriteToFile
+  ====================================================================================================================================================================================	-->
+  <Target Name="WriteToFile" Condition="$(SyntonyPropertyFile)!='' AND '$(SyntonyPropertyValue)' != '' AND '$(SyntonyPropertyValue.ToLower())' != 'false'">
+    <PropertyGroup>
+      <_WritePropertyToFileFullPath Condition="'$(MsBuildPropertyToFileExtension)' != ''">$(TEMP)\$(SyntonyPropertyFile)$(MsBuildPropertyToFileExtension)</_WritePropertyToFileFullPath>
+    </PropertyGroup>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Write to file '$(_WritePropertyToFileFullPath)' with value '$(SyntonyPropertyValue)'" /> 
+    <Delete Files="$(_WritePropertyToFileFullPath))"/>
+    <WriteLinesToFile File="$(_WritePropertyToFileFullPath)" Lines="$(SyntonyPropertyValue)"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    ShowGeneratedProperties
+  ====================================================================================================================================================================================	-->
+  <Target Name="ShowGeneratedProperties" AfterTargets="SyntonyAnalyzeAssemblyInfoFiles">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   G E N E R A T E D   P R O P E R T I E S" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" Today  = $(Today)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" Now  = $(Now)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" SyntonySharedSourcesDirectory  = $(SyntonySharedSourcesDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" SyntonySharedBinariesDirectory  = $(SyntonySharedBinariesDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" SyntonySharedToolsDirectory  = $(SyntonySharedToolsDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" SourceDirectory  = $(SourceDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="Exists('$(CompanyAssemblyInfo)')" Text=" CompanyAssemblyInfo = $(CompanyAssemblyInfo)" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="!Exists('$(CompanyAssemblyInfo)')" Text=" CompanyAssemblyInfo = $(CompanyAssemblyInfo) --- NOT EXISTS!" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="Exists('$(CompanyFrameworkAssemblyInfo)')" Text=" CompanyFrameworkAssemblyInfo = $(CompanyFrameworkAssemblyInfo)" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="!Exists('$(CompanyFrameworkAssemblyInfo)')" Text=" CompanyFrameworkAssemblyInfo = $(CompanyFrameworkAssemblyInfo) --- NOT EXISTS!" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="Exists('$(ProjectAssemblyInfo)')" Text=" ProjectAssemblyInfo = $(ProjectAssemblyInfo)" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="!Exists('$(ProjectAssemblyInfo)')" Text=" ProjectAssemblyInfo = $(ProjectAssemblyInfo) --- NOT EXISTS!" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="Exists('$(CompanyProjectVersionAssemblyInfo)')" Text=" CompanyProjectVersionAssemblyInfo = $(CompanyProjectVersionAssemblyInfo)" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="!Exists('$(CompanyProjectVersionAssemblyInfo)')" Text=" CompanyProjectVersionAssemblyInfo = $(CompanyProjectVersionAssemblyInfo) --- NOT EXISTS!" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="Exists('$(AssemblyInfo)')" Text=" AssemblyInfo = $(AssemblyInfo)" />
+    <Message Importance="$(SyntonyMessageImportance)" Condition="!Exists('$(AssemblyInfo)')" Text=" AssemblyInfo = $(AssemblyInfo) --- NOT EXISTS!" />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+
+    <ReadLinesFromFile File="$(TEMP)\AssemblyProduct$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="AssemblyProductValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyProduct  = $(AssemblyProductValue)" />
+
+    <ReadLinesFromFile File="$(TEMP)\AssemblyDescription$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="AssemblyDescriptionValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyDescription  = $(AssemblyDescriptionValue)" />
+
+    <ReadLinesFromFile File="$(TEMP)\AssemblyCompany$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="AssemblyCompanyValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyCompany  = $(AssemblyCompanyValue)" />
+
+    <ReadLinesFromFile File="$(TEMP)\AssemblyCopyright$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="AssemblyCopyrightValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyCopyright  = $(AssemblyCopyrightValue)" />
+
+    <ReadLinesFromFile File="$(TEMP)\AssemblyConfiguration$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="AssemblyConfigurationValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyConfiguration  = $(AssemblyConfigurationValue)" />
+
+    <ReadLinesFromFile File="$(TEMP)\AssemblyVersionMajor$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="AssemblyVersionMajorValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyVersionMajor  = $(AssemblyVersionMajorValue)" />
+
+    <ReadLinesFromFile File="$(TEMP)\AssemblyVersionMinor$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="AssemblyVersionMinorValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyVersionMinor  = $(AssemblyVersionMinorValue)" />
+
+    <ReadLinesFromFile File="$(TEMP)\AssemblyVersionBuild$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="AssemblyVersionBuildValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyVersionBuild  = $(AssemblyVersionBuildValue)" />
+
+    <ReadLinesFromFile File="$(TEMP)\AssemblyVersionRevision$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="AssemblyVersionRevisionValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" AssemblyVersionRevision  = $(AssemblyVersionRevisionValue)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+
+    <PropertyGroup>
+      <BuildPackageDefineValue>false</BuildPackageDefineValue>
+    </PropertyGroup>
+    <ReadLinesFromFile File="$(TEMP)\BuildPackageDefine$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="BuildPackageDefineValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" BuildPackageDefine (#define BUILD_PACKAGE)  = $(BuildPackageDefineValue)" />
+
+    <PropertyGroup>
+      <PublishNuGetPackageValue>false</PublishNuGetPackageValue>
+    </PropertyGroup>
+    <ReadLinesFromFile File="$(TEMP)\PublishPackageDefine$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="PublishNuGetPackageValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" PublishPackageDefine (#define PUBLISH_PACKAGE)  = $(PublishNuGetPackageValue)" />
+
+    <PropertyGroup>
+      <RunTestsDefineValue>false</RunTestsDefineValue>
+    </PropertyGroup>
+    <ReadLinesFromFile File="$(TEMP)\RunTestsDefine$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="RunTestsDefineValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" RunTestsDefine (#define RUN_TESTS)  = $(RunTestsDefineValue)" />
+
+    <PropertyGroup>
+      <BuildDocumentationDefineValue>false</BuildDocumentationDefineValue>
+    </PropertyGroup>
+    <ReadLinesFromFile File="$(TEMP)\BuildDocumentationDefine$(MsBuildPropertyToFileExtension)">
+      <Output TaskParameter="Lines" PropertyName="BuildDocumentationDefineValue" />
+    </ReadLinesFromFile>
+    <Message Importance="$(SyntonyMessageImportance)" Text=" BuildDocumentationDefine (#define BUILD_DOCUMENTATION)  = $(BuildDocumentationDefineValue)" />
+
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <!--
+  ====================================================================================================================================================================================
+                      SyntonyBuildError
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyBuildError">
+    <CallTarget Targets="SyntonyClearPropertyFiles"/>
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                      SyntonyClearPropertyFiles
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyClearPropertyFilesDependsOn>
+      InitSyntonyClearPropertyFiles;
+      BeforeSyntonyClearPropertyFiles;
+      ValidateSyntonyClearPropertyFiles;
+      CoreSyntonyClearPropertyFiles;
+      AfterSyntonyClearPropertyFiles
+    </SyntonyClearPropertyFilesDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyClearPropertyFiles" DependsOnTargets="$(SyntonyClearPropertyFilesDependsOn)" BeforeTargets="SyntonyAfterBuild">
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                      InitSyntonyClearPropertyFiles
+  ====================================================================================================================================================================================	-->
+  <Target Name="InitSyntonyClearPropertyFiles">
+    <PropertyGroup>
+      <_ToDeleteFilter>$(TEMP)\*$(MsBuildPropertyToFileExtension)</_ToDeleteFilter>
+    </PropertyGroup>
+    <CreateItem Include="$(_ToDeleteFilter);$(_OutputFile)">
+      <Output ItemName="_ToDelete" TaskParameter="Include"/>
+    </CreateItem>
+  </Target>
+
+
+  <!--
+  ====================================================================================================================================================================================
+                      ValidateSyntonyClearPropertyFiles
+  ====================================================================================================================================================================================	-->
+  <Target Name="ValidateSyntonyClearPropertyFiles">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   C L E A R   P R O P E R T Y - F I L E S" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="No files to delete." Condition="'@(_ToDelete)' == ''"/>
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                      CoreSyntonyClearPropertyFiles
+  ====================================================================================================================================================================================	-->
+  <Target Name="CoreSyntonyClearPropertyFiles" Inputs="%(_ToDelete.FullPath)" Outputs="%(Identity).Dummy">
+    <Message Importance="$(SyntonyMessageImportance)" Text="Delete '%(_ToDelete.FullPath)'." />
+    <Delete Files="%(_ToDelete.FullPath)" ContinueOnError="true"/>
+  </Target>
+
+  <Target Name="ClearAllPropertyFilesAfterClean" BeforeTargets="SyntonyAfterClean">
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="SyntonyClearPropertyFiles" Properties="FakeProperty=one" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSyntonyClearPropertyFiles
+  Redefine this target in your project in order to run tasks just before CoreSyntonyClearPropertyFiles
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSyntonyClearPropertyFiles"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSyntonyClearPropertyFiles
+  Redefine this target in your project in order to run tasks just after CoreSyntonyClearPropertyFiles
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSyntonyClearPropertyFiles"/>
+
+  <!--
+    To execute a solution-wide Before and After targets, you would create two MSBuild project files named "after.<SolutionName>.sln.targets" and "before.<SolutionName>.sln.targets" in the same folder as your solution.
+
+    To do this on all solutions, you would drop your custom solution-level after targets files into the 
+    path $(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\SolutionFile\ImportBefore\ or $(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\SolutionFile\ImportAfter. 
+    When those solutions are built, it will import all project files in these folders if they exist.
+
+    To verify the above, open a command prompt and navigate to the folder containing your solution file. Type "SET MSBuildEmitSolution=1". 
+    Then run msbuild.exe <SolutionName>. 
+    You will see that msbuild has saved the metadata project files <SolutionName>.sln.metaproj and <SolutionName>.sln.metaproj.tmp in the same path as your solution. 
+
+    View the <Import /> declarations at the top and bottom of the file and you'll notice the conditional imports that allow you to declare solution-specific before and after targets, or global solution-specific before and after targets.
+    
+    ANOTHER solution could be: http://sedodream.com/2006/01/17/UseMSBuildToBuildSolutionFiles.aspx
+  -->
+  <!-- Examples from the book "Inside MSBuild v2" https://github.com/sayedihashimi/sayed-samples/tree/master/Inside%20MSBuild%20v2 -->
+  <!-- for NUnit see https://github.com/sayedihashimi/sayed-samples/blob/master/Inside%20MSBuild%20v2/Ch07/nunit.targets  -->
+  
+
+  
+  
+  <!-- 
+  ====================================================================================================================================================================================
+                    GetReferences
+  ====================================================================================================================================================================================	-->
+  <Target Name="GetReferences" Outputs ="@(ProjReferences)">
+    <Message Text="Getting references for project $(ProjectFile)"/>
+    <CreateItem Include="@(Reference)">
+      <Output ItemName="ProjReferences" TaskParameter="Include"/>
+    </CreateItem>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+   </Target>
+
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    include all $(Company) targets and tasks
+  ====================================================================================================================================================================================	-->
+  <Import Project="$(SyntonySharedSourcesDirectory)\$(Company)*.tasks" />
+  <Import Project="$(MSBuildThisFileDirectory)$(Company)*.targets" Condition="'$(SyntonySharedSourcesDirectory)\' != '$(MSBuildThisFileDirectory)' AND '$(CompanyTargetsHasBeenImported)' != 'true'"/>
+
+  <PropertyGroup>
+    <CompanyTargetsHasBeenImported>true</CompanyTargetsHasBeenImported>
+  </PropertyGroup>
+</Project>

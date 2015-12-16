@@ -1,0 +1,26 @@
+The easiest way to convert vector graphics to XAML 
+Wow, this is sooooo simple. I've been converting WMF, EMF, CDX, CDR, AI, EPS, PDF and SVG to XAML all day. This is actually fun!
+
+First get a vector graphic and a program that can open it. I've used Adobe Illustrator, CorelDraw, Inkscape and even Windows Picture and Fax Viewer.
+
+Next get a vector graphic that your program can open.
+
+Finally get the Microsoft XPS printer driver if it is not already installed.
+
+Now open the file in your program of choice and print it to the XPS printer driver.
+
+Now rename the resultant XPS file to ZIP.
+
+Open the ZIP file and inside the Documents/1/Pages folder is a file named 1.fpage.
+
+Extract the file and rename it to .XAML.
+
+Now you have a XAML file that will open in Internet Explorer, but if you want to have a XAML file that will open kaxaml or for use in a WPF or a Silverlight application, open the file in notepad and replace the FixedPage tag with the Canvas tag.
+
+Here is a XAML graphic I converted from my Corel Gallery. (Either open link in IE7/IE8 or download the XAML file and open it in your XAML viewer of choice)
+
+Older posts from other blogs tell you to use Inkscape and print to PDF and then open the PDF in Adobe PDF Viewer. Fron the Adobe PDF Viewer you can then print to the XPS printer driver. The reason was that Inkscape converted the file to a raster image. Then and only then could you retrieve the 1.fpage file. This was because Inkscape sent the graphic to the printer as a raster image, not a vector image. 
+
+Well, since those blog posts were written, there have been updates to Inkscape, and now Inkscape prints a vector image as a vector, so there is now no need for converting it to an intermediate format (PDF). 
+at 7:25 PM Posted by Lee Saunders   
+Labels: graphics, silverlight, WPF, XAML 

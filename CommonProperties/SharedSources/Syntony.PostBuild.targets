@@ -1,0 +1,100 @@
+<!--
+***********************************************************************************************
+Syntony.PostBuild.targets
+***********************************************************************************************
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your Syntony projects from the command-line or the IDE.
+
+This file defines the steps in the standard build process specific for Syntony Framework projects.
+
+Copyright © 2013-2015 by Syntony - http://members.aon.at/hahnl - All rights reserved.
+
+By using the Import element, you can reuse code that is common to many project files. 
+This makes it easier to maintain the code because any updates you make to the shared code 
+get propagated to all the projects that import it.
+
+http://msdn.microsoft.com/en-us/library/92x05xfs.aspx
+http://msdn.microsoft.com/en-us/library/ms171464.aspx
+***********************************************************************************************
+-->
+
+<!-- this file is always stored in BRANCH\CommonProperties\SharedSources -->
+
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <Import Project="$(MSBuildThisFileDirectory)Syntony.Common.props" Condition="'$(CompanyPropsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.props')" />
+
+  <!-- This is used to determine whether Syntony.Common.targets needs to import Syntony.Common.props itself, or whether it has been imported previously, e.g. by the project itself. -->
+  <PropertyGroup>
+    <CompanyPropsHasBeenImported>true</CompanyPropsHasBeenImported>
+  </PropertyGroup>
+
+  
+  <Import Project="$(MSBuildThisFileDirectory)Syntony.Common.targets" Condition="'$(SyntonyCommonTargetsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.targets')" />
+
+
+  <PropertyGroup>
+  </PropertyGroup>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyPostBuild
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyPostBuildDependsOn>
+      InitSyntonyPostBuild;
+      BeforeSyntonyPostBuild;
+      CoreSyntonyPostBuild;
+      AfterSyntonyPostBuild
+    </SyntonyPostBuildDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyPostBuild" DependsOnTargets="$(SyntonyPostBuildDependsOn)" AfterTargets="PostBuildEvent" Condition="'$(ExecuteSyntonyPostBuild)' == 'true'">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <Target Name="InitSyntonyPostBuild" >
+    <ItemGroup>
+      <FilesToCopy1 Include="$(TargetDir)\**\*.pdb;$(TargetDir)\**\*.dll;$(TargetDir)\**\*.config"/>
+      <FilesToCopy2 Include="$(MSBuildProjectDirectory)\..\Docs\**\*.xml"/>
+    </ItemGroup>
+    <PropertyGroup>
+      <Destination1>$(SyntonySharedBinariesDirectory)\$(Company)</Destination1>
+      <Destination2>$(BranchDirectory)\$(DocsDirectoryName)</Destination2>
+    </PropertyGroup>
+
+  </Target>
+
+  <Target Name="CoreSyntonyPostBuild" >
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   P O S T B U I L D   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FilesToCopy:  %(FilesToCopy1.FullPath) => @(FilesToCopy1->'$(Destination1)\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FilesToCopy:  %(FilesToCopy2.FullPath) => @(FilesToCopy2->'$(Destination2)\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+
+    <Copy SourceFiles="@(FilesToCopy1)" DestinationFolder="$(Destination1)\%(RecursiveDir)" SkipUnchangedFiles="true" ContinueOnError="true"/>
+    <Copy SourceFiles="@(FilesToCopy2)" DestinationFolder="$(Destination2)\%(RecursiveDir)" SkipUnchangedFiles="true" ContinueOnError="true"/>
+    <!--
+    <Copy SourceFiles="@(FilesToCopy1)" DestinationFiles="@(FilesToCopy1->'$(Destination1)\%(RecursiveDir)%(Filename)%(Extension)')" ContinueOnError="true"/>
+    <Copy SourceFiles="@(FilesToCopy2)" DestinationFiles="@(FilesToCopy2->'$(Destination2)\%(RecursiveDir)%(Filename)%(Extension)')" ContinueOnError="true"/>
+    -->
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSyntonyPostBuild
+  Redefine this target in your project in order to run tasks just before CoreSyntonyPostBuild
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSyntonyPostBuild"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSyntonyNuGetBuildPackage
+  Redefine this target in your project in order to run tasks just after CoreSyntonyPostBuild
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSyntonyPostBuild"/>
+</Project>

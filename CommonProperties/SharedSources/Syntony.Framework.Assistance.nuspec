@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+
+This tokenized .nuspec manifest file is targeting the latest NuGet namespace,
+which ensures you can benefit from the latest packaging features.
+
+If desired, you can change the XML-namespace and target the original XSD.
+To do so, replace the current package declaration by the following:
+
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+or
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+
+Run "nuget.exe pack <project>" to build a nuget package for this project
+using this tokenized nuspec file.
+
+nuget pack Syntony.Framework.Assistance.csproj -IncludeReferencedProjects -Prop Configuration=Release
+or
+nuget pack Syntony.Framework.nuspec
+
+-->
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>Syntony.Framework.Assistance</id>
+    <version>0.1</version>
+    <title>Syntony.Framework.Assistance</title>
+    <authors>Syntony - Ing. Josef Hahnl, MBA</authors>
+    <owners>Syntony - Ing. Josef Hahnl, MBA</owners>
+    <licenseUrl>file:///D:/Syntony/Projects/Framework/Main/SharedSources/SyntonyLicense.txt</licenseUrl>
+    <projectUrl>http://members.aon.at/hahnl/</projectUrl>
+    <iconUrl>file:///D:/Syntony/Projects/Framework/Main/SharedBinaries/Icons/SyntonyBase32x32.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Syntony.Framework.Assistance - $version$</description>
+    <releaseNotes>Syntony.Framework.Assistance - $version$</releaseNotes>
+    <copyright>Copyright © 2004-2015 by Syntony - Ing. Josef Hahnl, MBA  http://members.aon.at/hahnl - hahnl@aon.at - All rights reserved.</copyright>
+    <tags>Library XAML Syntony Framework Assistance Hahnl</tags>
+	<language>en-US</language>
+  </metadata>
+  <files>
+    <file src="..\SharedBinaries\Syntony\JetBrains.Annotations.dll" target="lib\net45" />
+    <file src="..\SharedBinaries\Syntony\Syntony.Framework.Assistance.dll" target="lib\net45" />
+    <file src="..\SharedBinaries\Syntony\Syntony.Framework.Assistance.pdb" target="lib\net45" />
+    <file src="..\SharedBinaries\Syntony\Syntony.Framework.Assistance.Core.dll" target="lib\net45" />
+    <file src="..\SharedBinaries\Syntony\Syntony.Framework.Assistance.Core.pdb" target="lib\net45" />
+    <file src="..\SharedBinaries\Syntony\de\Syntony.Framework.Assistance.resources.dll" target="lib\net45\de" />
+</files>
+</package>

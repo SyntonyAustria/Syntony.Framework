@@ -1,0 +1,574 @@
+<!--
+***********************************************************************************************
+Syntony.TestRunner.targets
+***********************************************************************************************
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your Syntony projects from the command-line or the IDE.
+
+This file defines the steps in the standard build process specific for Syntony Framework projects.
+
+Copyright © 2013-2015 by Syntony - http://members.aon.at/hahnl - All rights reserved.
+
+By using the Import element, you can reuse code that is common to many project files. 
+This makes it easier to maintain the code because any updates you make to the shared code 
+get propagated to all the projects that import it.
+
+http://msdn.microsoft.com/en-us/library/92x05xfs.aspx
+http://msdn.microsoft.com/en-us/library/ms171464.aspx
+***********************************************************************************************
+-->
+
+<!-- this file is always stored in BRANCH\CommonProperties\SharedSources -->
+
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <Import Project="$(MSBuildThisFileDirectory)Syntony.Common.props" Condition="'$(CompanyPropsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.props')" />
+
+  <!-- This is used to determine whether Syntony.Common.targets needs to import Syntony.Common.props itself, or whether it has been imported previously, e.g. by the project itself. -->
+  <PropertyGroup>
+    <CompanyPropsHasBeenImported>true</CompanyPropsHasBeenImported>
+  </PropertyGroup>
+
+  <!--
+  ====================================================================================================================================================================================
+                      NUnitSyntonyTestRunner properties
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <RunTestsSymbol Condition=" '$(RunTestsSymbol)' == '' AND $([System.Text.RegularExpressions.Regex]::IsMatch($(DefineConstants), '^(.*;)*RUN_TESTS(;.*)*$'))">true</RunTestsSymbol>
+    <RunTests Condition=" '$(RunTests)' == '' ">false</RunTests> <!-- by default we do NOT run tests. If set true we run tests if a reference to NUnit, xUnit or MsTest is detected -->
+    <RunTests Condition=" '$(RunTests)' == 'true' OR '$(RunTestsSymbol)' == 'true' OR '$(RunTestsDefineValue)' == 'true'">true</RunTests>
+
+    <DetectTestFailures Condition=" '$(DetectTestFailures)' == '' ">$(RunTests)</DetectTestFailures>
+    <ReportTestFailures Condition="'$(ReportTestFailures)'==''">$(DetectTestFailures)</ReportTestFailures>
+    <TestRunnerContinueOnError Condition="'$(TestRunnerContinueOnError)'==''">true</TestRunnerContinueOnError>
+  </PropertyGroup>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    NUnitSyntonyTestRunner
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyTestRunnerDependsOn>
+      InitSyntonyTestRunner;
+      BeforeSyntonyTestRunner;
+      ValidateSyntonyTestRunner;
+      CoreSyntonyTestRunner;
+      DetectSyntonyTestRunnerFailures;
+      ReportSyntonyTestRunnerFailures;
+      AfterSyntonyTestRunner
+    </SyntonyTestRunnerDependsOn>
+  </PropertyGroup>
+  <Target Name="NUnitSyntonyTestRunner" DependsOnTargets="$(SyntonyTestRunnerDependsOn)" BeforeTargets="AfterBuild" Condition="'$(RunTests)' == 'true' AND '$(PublishPackage)' != 'true'">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    InitSyntonyTestRunner
+  ====================================================================================================================================================================================	-->
+  <Target Name="InitSyntonyTestRunner" Outputs="@(TestAssemblies)">
+    <SetEnvironmentVariableTask Name="MSBUILDDISABLENODERESUSE" Value="1"/>
+    <PropertyGroup>
+      <ContinueOnTestError  Condition="'$(ContinueOnTestError)'==''">true</ContinueOnTestError>
+    </PropertyGroup>
+
+    <!-- if Reference include nunit.framework it could be a NUnit test -->
+    <FilterList ListToFilter="@(Reference)" Filter="nunit.framework">
+      <Output ItemName="_FilteredNUnitList" TaskParameter="FilteredList" />
+    </FilterList>
+    <PropertyGroup>
+      <_IsNUnit Condition="'@(_FilteredNUnitList)' != ''">true</_IsNUnit>
+      <_IsNUnit Condition="'@(_FilteredNUnitList)' == ''">false</_IsNUnit>
+    </PropertyGroup>
+    <FilterList ListToFilter="@(_FilteredNUnitList)" Filter="Version=3." Condition="'$(_IsNUnit)' == 'true'">
+      <Output ItemName="_NUnit3VersionList" TaskParameter="FilteredList" />
+    </FilterList>
+    <PropertyGroup Condition="'$(_IsNUnit)' == 'true'">
+      <NUnitVersion Condition="'@(_NUnit3VersionList)' != ''">3</NUnitVersion>
+    </PropertyGroup>
+    <FilterList ListToFilter="@(_FilteredNUnitList)" Filter="Version=2." Condition="'$(_IsNUnit)' == 'true'">
+      <Output ItemName="_NUnit2VersionList" TaskParameter="FilteredList" />
+    </FilterList>
+    <PropertyGroup Condition="'$(_IsNUnit)' == 'true'">
+      <NUnitVersion Condition="'@(_NUnit2VersionList)' != ''">2</NUnitVersion>
+    </PropertyGroup>
+
+    <Error Condition="'$(_IsNUnit)' == 'true' AND '@(_NUnit2VersionList)' != '' AND '@(_NUnit3VersionList)' != ''" Text="NUnit Tests detected but more than one reference."/>
+    <Error Condition="'$(_IsNUnit)' == 'true' AND '@(_NUnit2VersionList)' == '' AND '@(_NUnit3VersionList)' == ''" Text="NUnit Tests detected but no reference to supported version."/>
+
+    <!-- if Reference include Microsoft.VisualStudio.QualityTools*.* like Microsoft.VisualStudio.QualityTools.UnitTestFramework it could be a MSTest test -->
+    <FilterList ListToFilter="@(Reference)" Filter="Microsoft.VisualStudio.QualityTools">
+      <Output ItemName="_FilteredMSTestList" TaskParameter="FilteredList" />
+    </FilterList>
+    <PropertyGroup>
+      <_IsMSTest Condition="'@(_FilteredMSTestList)' != ''">true</_IsMSTest>
+      <_IsMSTest Condition="'@(_FilteredMSTestList)' == ''">false</_IsMSTest>
+    </PropertyGroup>
+
+    <!-- if Reference include xunit.* like xunit.abstractions or xunit.assert or xunit.core it could be a xUnit test -->
+    <FilterList ListToFilter="@(Reference)" Filter="xunit.">
+      <Output ItemName="_FilteredXUnitTestList" TaskParameter="FilteredList" />
+    </FilterList>
+    <PropertyGroup>
+      <_IsxUnitTest Condition="'@(_FilteredXUnitTestList)' != ''">true</_IsxUnitTest>
+      <_IsxUnitTest Condition="'@(_FilteredXUnitTestList)' == ''">false</_IsxUnitTest>
+    </PropertyGroup>
+
+    <PropertyGroup>
+      <_IsTest>false</_IsTest>
+      <_IsTest Condition="'$(_IsNUnit)' == 'true' OR '$(_IsMSTest)' == 'true' OR '$(_IsxUnitTest)' == 'true'">true</_IsTest>
+    </PropertyGroup>
+
+    <CreateProperty Value="$(_IsNUnit)">
+      <Output TaskParameter="Value" PropertyName="IsNUnitTest"/>
+    </CreateProperty>
+    <CreateProperty Value="$(_IsMSTest)">
+      <Output TaskParameter="Value" PropertyName="IsMSTest"/>
+    </CreateProperty>
+    <CreateProperty Value="$(_IsxUnitTest)">
+      <Output TaskParameter="Value" PropertyName="IsxUnitTest"/>
+    </CreateProperty>
+    <CreateProperty Value="$(_IsTest)">
+      <Output TaskParameter="Value" PropertyName="IsTest"/>
+    </CreateProperty>
+
+    <CreateProperty Value="$(BranchDirectory)\$(TestResultsDirectoryName)">
+      <Output TaskParameter="Value" PropertyName="TestResultsDirectory"/>
+    </CreateProperty>
+
+    <!-- NUnit 3 -->
+    <PropertyGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '3'">
+      <_NUnitSyntonyTestRunner>nunit3-console.exe</_NUnitSyntonyTestRunner>
+    </PropertyGroup>
+
+    <ReadLinesFromFile File="$(TEMP)\NUnit3SyntonyTestRunner$(MsBuildCacheFileExtension)" Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '3'">
+      <Output TaskParameter="Lines" PropertyName="_Nunit3PathHint" />
+    </ReadLinesFromFile>
+    <ItemGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '3' AND Exists('$(_Nunit3PathHint)')">
+      <_NUnit3SyntonyTestRunnerFile Include="$(_Nunit3PathHint)"/>
+    </ItemGroup>
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnit3 TestRunner found in cache at '$(_Nunit3PathHint)'." Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '3' AND Exists('$(_Nunit3PathHint)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnit3 TestRunner path not in cache. '$(_Nunit3PathHint)'" Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '3' AND !Exists('$(_Nunit3PathHint)')"/>
+
+    <ItemGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '3' AND '@(_NUnit3SyntonyTestRunnerFile)' == '' AND Exists('$(SyntonySharedToolsDirectory)\$(_NUnitSyntonyTestRunner)')">
+      <_NUnit3SyntonyTestRunnerFile Include="$(SyntonySharedToolsDirectory)\$(_NUnitSyntonyTestRunner)"/>
+    </ItemGroup>
+    <ItemGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '3' AND '@(_NUnit3SyntonyTestRunnerFile)' == '' AND Exists('C:\Program Files (x86)\NUnit.org\nunit-console\$(_NUnitSyntonyTestRunner)')">
+      <_NUnit3SyntonyTestRunnerFile Include="C:\Program Files (x86)\NUnit.org\nunit-console\$(_NUnitSyntonyTestRunner)"/>
+    </ItemGroup>
+    <ItemGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '3' AND '@(_NUnit3SyntonyTestRunnerFile)' == ''">
+      <_NUnit3SyntonyTestRunnerFile Include="SyntonySharedBinariesDirectory\**\$(_NUnitSyntonyTestRunner)" />
+    </ItemGroup>
+    <PropertyGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '3' AND '@(_NUnit3SyntonyTestRunnerFile)' != ''">
+      <SyntonyTestRunnerDirectory Condition="'$(SyntonyTestRunnerDirectory)' == ''">%(_NUnit3SyntonyTestRunnerFile.RootDir)%(_NUnit3SyntonyTestRunnerFile.Directory)</SyntonyTestRunnerDirectory>
+      <NUnitSyntonyTestRunner Condition="'$(NUnitSyntonyTestRunner)' == '' AND !HasTrailingSlash('$(SyntonyTestRunnerDirectory)')">$(SyntonyTestRunnerDirectory)\$(_NUnitSyntonyTestRunner)</NUnitSyntonyTestRunner>
+      <NUnitSyntonyTestRunner Condition="'$(NUnitSyntonyTestRunner)' == '' AND HasTrailingSlash('$(SyntonyTestRunnerDirectory)')">$(SyntonyTestRunnerDirectory)$(_NUnitSyntonyTestRunner)</NUnitSyntonyTestRunner>
+    </PropertyGroup>
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=NUnit3SyntonyTestRunner;SyntonyPropertyValue=$(NUnitSyntonyTestRunner)" Targets="WriteToCache" Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '3' AND '@(_NUnit3SyntonyTestRunnerFile)' != '' AND Exists('$(NUnitSyntonyTestRunner)') AND !Exists('$(_Nunit3PathHint)')"/>
+
+    <!-- NUnit 2 -->
+    <PropertyGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '2'">
+      <_NUnitSyntonyTestRunner>nunit-console.exe</_NUnitSyntonyTestRunner>
+    </PropertyGroup>
+
+    <ReadLinesFromFile File="$(TEMP)\NUnit2SyntonyTestRunner$(MsBuildCacheFileExtension)" Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '2'">
+      <Output TaskParameter="Lines" PropertyName="_Nunit2PathHint" />
+    </ReadLinesFromFile>
+    <ItemGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '2' AND Exists('$(_Nunit2PathHint)')">
+      <_NUnit2TestRunnerFile Include="$(_Nunit2PathHint)"/>
+    </ItemGroup>
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnit2 TestRunner found in cache at '$(_Nunit2PathHint)'." Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '2' AND Exists('$(_Nunit2PathHint)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnit2 TestRunner path not in cache. '$(_Nunit2PathHint)'" Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '2' AND !Exists('$(_Nunit2PathHint)')"/>
+
+    <ItemGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '2' AND '@(_NUnit2SyntonyTestRunnerFile)' == '' AND Exists('$(SyntonySharedToolsDirectory)\$(_NUnitSyntonyTestRunner)')">
+      <_NUnit2TestRunnerFile Include="$(SyntonySharedToolsDirectory)\$(_NUnitSyntonyTestRunner)"/>
+    </ItemGroup>
+    <ItemGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '2' AND '@(_NUnit2SyntonyTestRunnerFile)' == ''">
+      <_NUnit2SyntonyTestRunnerFile Include="C:\Program Files (x86)\NUnit*\bin\$(_NUnitSyntonyTestRunner)" />
+    </ItemGroup>
+    <ItemGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '2' AND '@(_NUnit2SyntonyTestRunnerFile)' == ''">
+      <_NUnit2SyntonyTestRunnerFile Include="$(SyntonySharedBinariesDirectory)\**\$(_NUnitSyntonyTestRunner)"/>
+    </ItemGroup>
+    <PropertyGroup Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '2' AND '@(_NUnit2SyntonyTestRunnerFile)' != ''">
+      <SyntonyTestRunnerDirectory Condition="'$(SyntonyTestRunnerDirectory)' == ''">%(_NUnit2SyntonyTestRunnerFile.RootDir)%(_NUnit2SyntonyTestRunnerFile.Directory)</SyntonyTestRunnerDirectory>
+      <NUnitSyntonyTestRunner Condition="'$(NUnitSyntonyTestRunner)' == '' AND !HasTrailingSlash('$(SyntonyTestRunnerDirectory)')">$(SyntonyTestRunnerDirectory)\$(_NUnitSyntonyTestRunner)</NUnitSyntonyTestRunner>
+      <NUnitSyntonyTestRunner Condition="'$(NUnitSyntonyTestRunner)' == '' AND HasTrailingSlash('$(SyntonyTestRunnerDirectory)')">$(SyntonyTestRunnerDirectory)$(_NUnitSyntonyTestRunner)</NUnitSyntonyTestRunner>
+    </PropertyGroup>
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=NUnit2SyntonyTestRunner;SyntonyPropertyValue=$(NUnitSyntonyTestRunner)" Targets="WriteToCache" Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '2' AND '@(_NUnit2SyntonyTestRunnerFile)' != '' AND Exists('$(NUnitSyntonyTestRunner)') AND !Exists('$(_Nunit2PathHint)')"/>
+
+    <!-- MSTest -->
+    <PropertyGroup Condition=" '$(IsMSTest)'=='true' ">
+      <_MsSyntonyTestRunner>MSTest.exe</_MsSyntonyTestRunner>
+    </PropertyGroup>
+
+    <ReadLinesFromFile File="$(TEMP)\MSSyntonyTestRunner$(MsBuildCacheFileExtension)" Condition=" '$(IsMSTest)'=='true' ">
+      <Output TaskParameter="Lines" PropertyName="_MsTestPathHint" />
+    </ReadLinesFromFile>
+    <ItemGroup Condition=" '$(IsMSTest)'=='true' AND Exists('$(_MsTestPathHint)')">
+      <_MSTestSyntonyTestRunnerFile Include="$(_MsTestPathHint)"/>
+    </ItemGroup>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MsTest TestRunner found in cache at '$(_MsTestPathHint)'." Condition=" '$(IsMSTest)'=='true' AND Exists('$(_MsTestPathHint)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="MsTest TestRunner path not in cache. '$(_MsTestPathHint)'" Condition=" '$(IsMSTest)'=='true' AND !Exists('$(_MsTestPathHint)')"/>
+
+    <ItemGroup Condition=" '$(IsMSTest)'=='true' AND '@(_MSTestSyntonyTestRunnerFile)' == '' AND Exists('$(SyntonySharedToolsDirectory)\$(_MsSyntonyTestRunner)')">
+      <_MSTestSyntonyTestRunnerFile Include="$(SyntonySharedToolsDirectory)\$(_MsSyntonyTestRunner)" />
+    </ItemGroup>
+    <ItemGroup Condition=" '$(IsMSTest)'=='true' AND '@(_MSTestSyntonyTestRunnerFile)' == ''">
+      <_MSTestSyntonyTestRunnerFile Include="$(IDEToolsDirectory)\**\$(_MsSyntonyTestRunner)" />
+    </ItemGroup>
+    <ItemGroup Condition=" '$(IsMSTest)'=='true' AND '@(_MSTestSyntonyTestRunnerFile)' == ''">
+      <_MSTestSyntonyTestRunnerFile Include="$(SyntonySharedBinariesDirectory)\**\$(_MsSyntonyTestRunner)"/>
+    </ItemGroup>
+    <PropertyGroup Condition=" '$(IsMSTest)'=='true' AND '@(_MSTestSyntonyTestRunnerFile)' != ''">
+      <MsSyntonyTestRunnerDirectory Condition="'$(MsSyntonyTestRunnerDirectory)' == ''">%(_MSTestSyntonyTestRunnerFile.RootDir)%(_MSTestSyntonyTestRunnerFile.Directory)</MsSyntonyTestRunnerDirectory>
+      <MSSyntonyTestRunner Condition="'$(MSSyntonyTestRunner)' == '' AND !HasTrailingSlash('$(MsSyntonyTestRunnerDirectory)')">$(MsSyntonyTestRunnerDirectory)\$(_MsSyntonyTestRunner)</MSSyntonyTestRunner>
+      <MSSyntonyTestRunner Condition="'$(MSSyntonyTestRunner)' == '' AND HasTrailingSlash('$(MsSyntonyTestRunnerDirectory)')">$(MsSyntonyTestRunnerDirectory)$(_MsSyntonyTestRunner)</MSSyntonyTestRunner>
+    </PropertyGroup>
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=MSSyntonyTestRunner;SyntonyPropertyValue=$(MSSyntonyTestRunner)" Targets="WriteToCache" Condition=" '$(IsMSTest)'=='true' AND '@(_MSTestSyntonyTestRunnerFile)' != '' AND Exists('$(MSSyntonyTestRunner)') AND !Exists('$(_MsTestPathHint)')"/>
+
+    <!-- xUnit -->
+    <PropertyGroup Condition=" '$(IsxUnitTest)'=='true' ">
+      <_XUnitSyntonyTestRunner>xunit.runner.msbuild.dll</_XUnitSyntonyTestRunner>
+    </PropertyGroup>
+
+    <ReadLinesFromFile File="$(TEMP)\XUnitSyntonyTestRunner$(MsBuildCacheFileExtension)" Condition=" '$(IsxUnitTest)'=='true' ">
+      <Output TaskParameter="Lines" PropertyName="_xUnitTestPathHint" />
+    </ReadLinesFromFile>
+    <ItemGroup Condition=" '$(IsxUnitTest)'=='true' AND Exists('$(_xUnitTestPathHint)')">
+      <_MSTestSyntonyTestRunnerFile Include="$(_xUnitTestPathHint)"/>
+    </ItemGroup>
+    <Message Importance="$(SyntonyMessageImportance)" Text="xUnit TestRunner found in cache at '$(_xUnitTestPathHint)'." Condition=" '$(IsxUnitTest)'=='true' AND Exists('$(_xUnitTestPathHint)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="xUnit TestRunner path not in cache. '$(_xUnitTestPathHint)'" Condition=" '$(IsxUnitTest)'=='true' AND !Exists('$(_xUnitTestPathHint)')"/>
+
+    <ItemGroup Condition=" '$(IsxUnitTest)'=='true' AND Exists('$(SyntonySharedToolsDirectory)\$(_XUnitSyntonyTestRunner)')">
+      <_MSTestSyntonyTestRunnerFile Include="$(SyntonySharedToolsDirectory)\$(_XUnitSyntonyTestRunner)" />
+    </ItemGroup>
+    <ItemGroup Condition=" '$(IsxUnitTest)'=='true' AND '@(_XUnitSyntonyTestRunnerFile)' == ''">
+      <_XUnitSyntonyTestRunnerFile Include="$(SyntonySharedBinariesDirectory)\**\$(_XUnitSyntonyTestRunner)"/>
+    </ItemGroup>
+    <ItemGroup Condition=" '$(IsxUnitTest)'=='true' AND '@(_XUnitSyntonyTestRunnerFile)' == ''">
+      <_XUnitSyntonyTestRunnerFile Include="$(IDEToolsDirectory)\**\$(_XUnitSyntonyTestRunner)" />
+    </ItemGroup>
+    <PropertyGroup Condition=" '$(IsxUnitTest)'=='true' AND '@(_XUnitSyntonyTestRunnerFile)' != ''">
+      <XUnitSyntonyTestRunnerDirectory Condition="'$(XUnitSyntonyTestRunnerDirectory)' == ''">%(_XUnitSyntonyTestRunnerFile.RootDir)%(_XUnitSyntonyTestRunnerFile.Directory)</XUnitSyntonyTestRunnerDirectory>
+      <XUnitSyntonyTestRunner Condition="'$(XUnitSyntonyTestRunner)' == '' AND !HasTrailingSlash('$(XUnitSyntonyTestRunnerDirectory)')">$(XUnitSyntonyTestRunnerDirectory)\$(_XUnitSyntonyTestRunner)</XUnitSyntonyTestRunner>
+      <XUnitSyntonyTestRunner Condition="'$(XUnitSyntonyTestRunner)' == '' AND HasTrailingSlash('$(XUnitSyntonyTestRunnerDirectory)')">$(XUnitSyntonyTestRunnerDirectory)$(_XUnitSyntonyTestRunner)</XUnitSyntonyTestRunner>
+    </PropertyGroup>
+    <MSBuild Projects ="$(MSBuildProjectFullPath)" Properties="SyntonyPropertyFile=XUnitSyntonyTestRunner;SyntonyPropertyValue=$(XUnitSyntonyTestRunner)" Targets="WriteToCache" Condition=" '$(IsxUnitTest)'=='true' AND '@(_XUnitSyntonyTestRunnerFile)' != '' AND Exists('$(XUnitSyntonyTestRunner)') AND !Exists('$(_xUnitTestPathHint)')"/>
+
+
+    <!-- Create TestAssemblies where input-files is one or more assemblies or test projects -->
+    <ItemGroup Condition="'$(IsNUnitTest)'=='true'">
+      <_TestAssemblies Include="**\*.nunit" />
+    </ItemGroup>
+    <ItemGroup Condition="'@(_TestAssemblies)'==''">
+      <_TestAssemblies Include="$(OutputPath)\**\*Test*.dll" Exclude="$(OutputPath)\**\*Microsoft*.dll;$(OutputPath)\**\xunit*.dll;$(OutputPath)\**\nunit*.dll;$(TargetPath)"/>
+    </ItemGroup>
+    <ItemGroup Condition="'@(_TestAssemblies)'==''">
+      <_TestAssemblies Include="$(TargetPath)" />
+    </ItemGroup>
+    <CreateItem Include="%(_TestAssemblies.Identity)">
+      <Output TaskParameter="Include" ItemName="TestAssemblies"/>
+    </CreateItem>
+
+    <MakeDir Directories="$(TestResultsDirectory)" Condition="'$(TestResultsDirectory)' != '' AND !Exists('$(TestResultsDirectory)')" />
+    <Delete Files="$(TestResultsDirectory)\%(TestAssemblies.FileName).*TestResults.xml" />
+
+    <PropertyGroup>
+      <!-- MsTest see https://msdn.microsoft.com/en-us/library/ms182489.aspx -->
+      <MSTestCommand Condition=" '$(IsMSTest)'=='true'">"$(MSSyntonyTestRunner)" /testcontainer:"@(TestAssemblies->'%(FullPath)')" /resultsfile:"$(TestResultsDirectory)\%(FileName).MsTestResults.xml" /nologo</MSTestCommand>
+
+      <!-- NUnit 2 see http://nunit.org/index.php?p=consoleCommandLine&r=2.6.4 -->
+      <NUnitTestCommand Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '2'">"$(NUnitSyntonyTestRunner)" "@(TestAssemblies->'%(FullPath)')" "/result:$(TestResultsDirectory)\%(FileName).NUnitTestResults.xml" /noshadow /trace:off /nologo</NUnitTestCommand>
+
+      <!-- NUnit 3 see https://github.com/nunit/nunit/wiki/Console-Command-Line -->
+      <NUnitTestCommand Condition=" '$(IsNUnitTest)'=='true' AND '$(NUnitVersion)' == '3'">"$(NUnitSyntonyTestRunner)" "@(TestAssemblies->'%(FullPath)')" --noheader --trace=off --framework=net-4.5 --labels=off "--result=$(TestResultsDirectory)\%(FileName).NUnitTestResults.xml"</NUnitTestCommand>
+      <!--xUnit see https://xunit.github.io/docs/running-tests-in-msbuild.html -->
+    </PropertyGroup>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                      WriteToCache
+  ====================================================================================================================================================================================	-->
+  <Target Name="WriteToCache" Condition="$(SyntonyPropertyFile)!='' AND '$(SyntonyPropertyValue)' != '' AND '$(SyntonyPropertyValue.ToLower())' != 'false'">
+    <PropertyGroup>
+      <_WritePropertyToFileFullPath Condition="'$(MsBuildCacheFileExtension)' != ''">$(TEMP)\$(SyntonyPropertyFile)$(MsBuildCacheFileExtension)</_WritePropertyToFileFullPath>
+    </PropertyGroup>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Write to cache '$(_WritePropertyToFileFullPath)' with value '$(SyntonyPropertyValue)'" />
+    <Delete Files="$(_WritePropertyToFileFullPath))"/>
+    <WriteLinesToFile File="$(_WritePropertyToFileFullPath)" Lines="$(SyntonyPropertyValue)"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ValidateSyntonyTestRunner
+  ====================================================================================================================================================================================	-->
+  <Target Name="ValidateSyntonyTestRunner" >
+    <!-- Validate assumptions that are contracted  -->
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   T E S T R U N N E R   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Reference:               %(Reference.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FilteredNUnitList:       %(_FilteredNUnitList.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsNUnitTest:             $(IsNUnitTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnitVersion:            $(NUnitVersion)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FilteredMSTestList:      %(_FilteredMSTestList.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsMSTest:                $(IsMSTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="_FilteredXUnitTestList:  %(_FilteredXUnitTestList.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsxUnitTest:             $(IsxUnitTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsTest:                  $(IsTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnitSyntonyTestRunner:  $(NUnitSyntonyTestRunner)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSSyntonyTestRunner:     $(MSSyntonyTestRunner)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="XUnitSyntonyTestRunner:  $(XUnitSyntonyTestRunner)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestAssemblies:          %(TestAssemblies.FullPath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestAssemblies:          %(TestAssemblies.FileName).%(TestAssemblies.Extenion)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestResultsDirectory:    $(TestResultsDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestResultFile:          $(TestResultsDirectory)\%(TestAssemblies.FileName).TestResults.xml" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnitTestCommand:        $(NUnitTestCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSTestCommand:           $(MSTestCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="ContinueOnTestError:     $(ContinueOnTestError)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="DetectTestFailures:      $(DetectTestFailures)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="ReportTestFailures:      $(ReportTestFailures)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+
+    <Error Condition="'$(IsNUnitTest)'=='true' AND !Exists('$(NUnitSyntonyTestRunner)')" Text="Couldn't locate NUnitSyntonyTestRunner at: '$(NUnitSyntonyTestRunner)'."/>
+    <Error Condition="'$(IsMSTest)'=='true' AND !Exists('$(MSSyntonyTestRunner)')" Text="Couldn't locate MSSyntonyTestRunner at: '$(MSSyntonyTestRunner)'."/>
+    <Error Condition="'$(IsxUnitTest)'=='true' AND !Exists('$(XUnitSyntonyTestRunner)')" Text="Couldn't locate XUnitSyntonyTestRunner at: '$(XUnitSyntonyTestRunner)'."/>
+    <Error Condition="'$(TestResultsDirectory)'==''" Text="TestResultsDirectory property not defined."/>
+    <Error Condition="!Exists('$(TestResultsDirectory)')" Text="Couldn't locate TestResultsDirectory at: '$(TestResultsDirectory)'."/>
+    <Error Condition="'@(TestAssemblies)'==''"	Text="No TestAssemblies defined."/>
+    <Error Condition="!Exists('%(TestAssemblies.FullPath)')" Text="Couldn't locate assembly at: '%(TestAssemblies.FullPath)'." />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <UsingTask AssemblyFile="$(XUnitSyntonyTestRunner)" Condition="'$(IsxUnitTest)' == 'true' AND Exists('$(XUnitSyntonyTestRunner)')" TaskName="Xunit.Runner.MSBuild.xunit"/>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    CoreSyntonyTestRunner
+  ====================================================================================================================================================================================	-->
+  <Target Name="CoreSyntonyTestRunner" Inputs="%(TestAssemblies.Identity)" Outputs="%(Identity).Dummy">
+    <PropertyGroup>
+      <SyntonyTestRunnerContinueOnError Condition="'$(SyntonyTestRunnerContinueOnError)'==''">true</SyntonyTestRunnerContinueOnError>
+    </PropertyGroup>
+    
+    <!-- MSTEST -->
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " Condition="'$(IsMSTest)' == 'true'" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" Condition="'$(IsMSTest)' == 'true'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   M S T E S T" Condition="'$(IsMSTest)' == 'true'" />
+    <Exec Command="$(MSTestCommand)" IgnoreExitCode="true" Condition="'$(OS)' != 'Windows_NT' AND '$(IsMSTest)' == 'true'" />
+    <Exec Command="$(MSTestCommand)" IgnoreExitCode="true" LogStandardErrorAsError="true" Condition="'$(OS)' == 'Windows_NT' AND '$(IsMSTest)' == 'true'" />
+
+    <!-- NUnit -->
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " Condition="'$(IsNUnitTest)' == 'true'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" Condition="'$(IsNUnitTest)' == 'true'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   N U N I T - T E S T" Condition="'$(IsNUnitTest)' == 'true'" />
+    <Exec Command="$(NUnitTestCommand)" IgnoreExitCode="true" Condition="'$(OS)' != 'Windows_NT' AND '$(IsNUnitTest)' == 'true'" />
+    <Exec Command="$(NUnitTestCommand)" IgnoreExitCode="true" LogStandardErrorAsError="true" Condition="'$(OS)' == 'Windows_NT' AND '$(IsNUnitTest)' == 'true'" />
+    
+    <!-- xUnit -->
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " Condition="'$(IsxUnitTest)' == 'true'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" Condition="'$(IsxUnitTest)' == 'true'"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   X U N I T - T E S T" Condition="'$(IsxUnitTest)' == 'true'" />
+    <!--xUnit see https://xunit.github.io/docs/running-tests-in-msbuild.html -->
+    <Message Importance="$(SyntonyMessageImportance)" Text="XUnitSyntonyTestRunner:   $(XUnitSyntonyTestRunner)" Condition="'$(IsxUnitTest)' == 'true'" />
+    <!-- ATTENTION: xunit doesn't close file handle for its own assemblies -->
+    <xunit Assemblies="@(TestAssemblies)" NoLogo="true" Xml="$(TestResultsDirectory)\%(FileName).xUnitTestResults.xml" Condition="'$(OS)' == 'Windows_NT' AND '$(IsxUnitTest)' == 'true'" ContinueOnError="WarnAndContinue"/>
+
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" Condition="'$(IsTest)' == 'true'"/>
+
+    <ItemGroup Condition="'$(IsNUnitTest)' == 'true'">
+      <_SyntonyTestRunnerReportFiles Include="@(TestAssemblies->'$(TestResultsDirectory)\%(FileName).NUnitTestResults.xml')" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(IsxUnitTest)' == 'true'">
+      <_SyntonyTestRunnerReportFiles Include="@(TestAssemblies->'$(TestResultsDirectory)\%(FileName).xUnitTestResults.xml')" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(IsMSTest)' == 'true'">
+      <_SyntonyTestRunnerReportFiles Include="@(TestAssemblies->'$(TestResultsDirectory)\%(FileName).MsTestResults.xml')" />
+    </ItemGroup>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- The MSBuildCommunityTasks is required to have been imported to use this file. -->
+  <Import Project="$(ExtensionTasksPath)MSBuild.ExtensionPack.tasks"/>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    DetectSyntonyTestRunnerFailures    NUnit
+  ====================================================================================================================================================================================	-->
+  <Target Name="DetectSyntonyTestRunnerFailures" Inputs="%(_SyntonyTestRunnerReportFiles.FullPath)" Outputs="%(Identity).Dummy" Condition="'$(IsTest)' == 'true' AND '$(DetectTestFailures)' =='true' AND '$(ReportTestFailures)' == 'true'">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   D E T E C T T E S T R U N N E R F A I L U R E S  -  %(_SyntonyTestRunnerReportFiles.Filename)%(_SyntonyTestRunnerReportFiles.Extension)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="%(_SyntonyTestRunnerReportFiles.FullPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+
+    <!--
+    <XmlRead ContinueOnError="true" XmlFileName="$(_CurrentTestReportFile)" XPath="$(SyntonyTestRunnerFailureXPath)">
+      <Output TaskParameter="Value" PropertyName="_TestResults" />
+    </XmlRead>
+    <XmlPeek XmlInputPath="$(_CurrentTestReportFile)" Query="$(SyntonyTestRunnerFailureXPath)">
+      <Output TaskParameter="Result" PropertyName="_TestResults" />
+    </XmlPeek>
+    -->
+
+    <!-- there are two files possible:
+      @(TestAssemblies->'$(TestResultsDirectory)\%(FileName).MsTestResults.xml')  	==> IsMSTest == true
+      @(TestAssemblies->'$(TestResultsDirectory)\%(FileName).NUnitTestResults.xml') 	==> IsNUnitTest == true
+    -->
+    <DetectTestFailureFromFile File="%(_SyntonyTestRunnerReportFiles.FullPath)" Version="$(NUnitVersion)" ContinueOnError="WarnAndContinue">
+      <Output TaskParameter="Failures" ItemName="_TestResults" />
+    </DetectTestFailureFromFile >
+
+    <PropertyGroup>
+      <_TestFailed>false</_TestFailed>
+      <_TestFailed Condition="'@(_TestResults)'!=''">true</_TestFailed>
+      <_EndsWith>%(_SyntonyTestRunnerReportFiles.FullPath)</_EndsWith>
+    </PropertyGroup>
+
+    <Message Importance="$(SyntonyMessageImportance)" Text="_TestFailed:   $(_TestFailed)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="_TestResults:  %(_TestResults.FullPath)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="_EndsWith:     $(_EndsWith)"/>
+
+    <Copy Condition="'$(_TestFailed)' == 'true'" SourceFiles="@(_SyntonyTestRunnerReportFiles)" DestinationFiles="@(_SyntonyTestRunnerReportFiles->'%(RootDir)%(Directory)%(Filename).FAILED.xml')"/>
+    <!-- <Delete Condition="$(_TestFailed)==true" Files="@(_SyntonyTestRunnerReportFiles)"/> -->
+
+    <Message Importance="high" Text=" " />
+    <Message Importance="high" Text="$(SyntonySeparator)" />
+    <Message Importance="high" Text="@(_TestResults->Count())   M S T E S T - F A I L U R E S" Condition="'@(_TestResults->Count())' != '1' AND $(_EndsWith.EndsWith('MsTestResults.xml')) AND '$(ReportTestFailures)' == 'true'"/>
+    <Message Importance="high" Text="@(_TestResults->Count())   M S T E S T - F A I L U R E" Condition="'@(_TestResults->Count())' == '1' AND $(_EndsWith.EndsWith('MsTestResults.xml')) AND '$(ReportTestFailures)' == 'true'"/>
+    <Message Importance="high" Text="@(_TestResults->Count())   N U N I T T E S T - F A I L U R E S" Condition="'@(_TestResults->Count())' != '1' AND $(_EndsWith.EndsWith('NUnitTestResults.xml')) AND '$(ReportTestFailures)' == 'true'"/>
+    <Message Importance="high" Text="@(_TestResults->Count())   N U N I T T E S T - F A I L U R E" Condition="'@(_TestResults->Count())' == '1' AND $(_EndsWith.EndsWith('NUnitTestResults.xml')) AND '$(ReportTestFailures)' == 'true'"/>
+    <Message Importance="high" Text="@(_TestResults->Count())   X U N I T T E S T - F A I L U R E S" Condition="'@(_TestResults->Count())' != '1' AND $(_EndsWith.EndsWith('xUnitTestResults.xml')) AND '$(ReportTestFailures)' == 'true'"/>
+    <Message Importance="high" Text="@(_TestResults->Count())   X U N I T T E S T - F A I L U R E" Condition="'@(_TestResults->Count())' == '1' AND $(_EndsWith.EndsWith('xUnitTestResults.xml')) AND '$(ReportTestFailures)' == 'true'"/>
+    <Message Importance="high" Text="$(SyntonySeparator)" Condition="'$(ReportTestFailures)' == 'true'"/>
+    <!-- call for each failure -->
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="ShowDetailedFailure" Properties="_Number=%(_TestResults.Number): %(_TestResults.Identity);_Message=%(_TestResults.Message);_StackTrace=%(_TestResults.StackTrace)" ContinueOnError="true" Condition="'$(ReportTestFailures)' == 'true'"/>
+    
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+  
+  <Target Name="ShowDetailedFailure">
+    <Message Importance="high" Text="$(_Number): %(_TestResults.Identity)" Condition="'$(ReportTestFailures)' == 'true'"/>
+    <Message Importance="high" Text="   $(_Message)" Condition="'$(ReportTestFailures)' == 'true'"/>
+    <Message Importance="high" Text="   $(_StackTrace)" Condition="'$(ReportTestFailures)' == 'true'"/>
+    <Message Importance="high" Text="$(SyntonySeparator)" Condition="'$(ReportTestFailures)' == 'true'"/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ReportSyntonyTestRunnerFailures
+  ====================================================================================================================================================================================	-->
+  <Target Name="ReportSyntonyTestRunnerFailures" Condition="'$(ReportTestFailures)' == 'true'">
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSyntonyTestRunner
+  Redefine this target in your project in order to run tasks just before CoreSyntonyTestRunner
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSyntonyTestRunner"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSyntonyTestRunner
+  Redefine this target in your project in order to run tasks just after CoreSyntonyTestRunner
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSyntonyTestRunner"/>
+
+  <PropertyGroup>
+    <SyntonyTestRunnerCleanDependsOn>
+      InitSyntonyTestRunner;
+      BeforeSyntonyTestRunnerClean;
+      ValidateSyntonyTestRunnerClean;
+      CoreSyntonyTestRunnerClean;
+      AfterSyntonyTestRunnerClean;
+    </SyntonyTestRunnerCleanDependsOn>
+  </PropertyGroup>
+  <!-- 
+  ====================================================================================================================================================================================
+                    SyntonyTestRunnerClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="SyntonyTestRunnerClean" BeforeTargets="AfterClean" DependsOnTargets="$(SyntonyTestRunnerCleanDependsOn)"/>
+
+  <Target Name="ValidateSyntonyTestRunnerClean" >
+    <!-- Validate assumptions that are contracted  -->
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   T E S T R U N N E R C L E A N   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Reference:               %(Reference.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FilteredNUnitList:       %(_FilteredNUnitList.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsNUnitTest:             $(IsNUnitTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnitVersion:            $(NUnitVersion)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="FilteredMSTestList:      %(_FilteredMSTestList.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsMSTest:                $(IsMSTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="_FilteredXUnitTestList:  %(_FilteredXUnitTestList.Identity)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsxUnitTest:             $(IsxUnitTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="IsTest:                  $(IsTest)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnitSyntonyTestRunner:  $(NUnitSyntonyTestRunner)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSSyntonyTestRunner:     $(MSSyntonyTestRunner)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="XUnitSyntonyTestRunner:  $(XUnitSyntonyTestRunner)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestAssemblies:          %(TestAssemblies.FullPath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestAssemblies:          %(TestAssemblies.FileName).%(TestAssemblies.Extenion)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestResultsDirectory:    $(TestResultsDirectory)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="TestResultFile:          $(TestResultsDirectory)\%(TestAssemblies.FileName).TestResults.xml" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="NUnitTestCommand:        $(NUnitTestCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="MSTestCommand:           $(MSTestCommand)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="ContinueOnTestError:     $(ContinueOnTestError)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+
+    <Error Condition="'$(TestResultsDirectory)'==''" Text="TestResultsDirectory property not defined."/>
+    <Error Condition="!Exists('$(TestResultsDirectory)')" Text="Couldn't locate TestResultsDirectory at: '$(TestResultsDirectory)'."/>
+    <Error Condition="'@(TestAssemblies)'==''"	Text="No TestAssemblies defined."/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    CoreSyntonyTestRunnerClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="CoreSyntonyTestRunnerClean" Inputs="@(TestAssemblies)" Outputs="%(Identity).Dummy">
+    <ItemGroup>
+      <_FilesToDelete Remove="*.xml"/>
+      <_FilesToDelete Include="$(TestResultsDirectory)\%(TestAssemblies.FileName).*TestResults*.xml"/>
+    </ItemGroup>
+
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   T E S T R U N N E R C L E A N"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="No files to delete." Condition="'@(_FilesToDelete)' == ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Delete file: '%(_FilesToDelete.FullPath)'" Condition="'@(_FilesToDelete)' != ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+
+    <Delete Files="@(_FilesToDelete)" ContinueOnError="true"/>
+    <DelteAllSubDirectories Folder="$(TestResultsDirectory)" />
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    BeforeSyntonyTestRunnerClean
+  Redefine this target in your project in order to run tasks just after CoreSyntonyTestRunnerClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="BeforeSyntonyTestRunnerClean" />
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    AfterSyntonyTestRunnerClean
+  Redefine this target in your project in order to run tasks just after CoreSyntonyTestRunnerClean
+  ====================================================================================================================================================================================	-->
+  <Target Name="AfterSyntonyTestRunnerClean" />
+
+
+  <Import Project="($(MSBuildThisFileDirectory)Syntony.Common.targets" Condition="'$(SyntonyCommonTargetsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.targets')" />
+</Project>

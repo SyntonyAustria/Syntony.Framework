@@ -1,0 +1,1 @@
+Container for all INTEGRATION tests over the complete solution with LEGACY CODE.

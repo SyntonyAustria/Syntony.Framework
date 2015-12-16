@@ -1,0 +1,158 @@
+<!--
+***********************************************************************************************
+Syntony.TextTemplating.targets
+***********************************************************************************************
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your Syntony projects from the command-line or the IDE.
+
+This file defines the steps in the standard build process specific for Syntony Framework projects.
+
+Copyright © 2013-2015 by Syntony - http://members.aon.at/hahnl - All rights reserved.
+
+By using the Import element, you can reuse code that is common to many project files. 
+This makes it easier to maintain the code because any updates you make to the shared code 
+get propagated to all the projects that import it.
+
+http://msdn.microsoft.com/en-us/library/92x05xfs.aspx
+http://msdn.microsoft.com/en-us/library/ms171464.aspx
+***********************************************************************************************
+-->
+
+<!-- this file is always stored in BRANCH\CommonProperties\SharedSources -->
+
+<!-- T4 (Text Template Transformation Toolkit) -->
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <Import Project="$(MSBuildThisFileDirectory)Syntony.Common.props" Condition="'$(CompanyPropsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.props')" />
+
+  <!-- This is used to determine whether Syntony.Common.targets needs to import Syntony.Common.props itself, or whether it has been imported previously, e.g. by the project itself. -->
+  <PropertyGroup>
+    <CompanyPropsHasBeenImported>true</CompanyPropsHasBeenImported>
+  </PropertyGroup>
+
+  <!--
+  ====================================================================================================================================================================================
+                      T4 - Transformation
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyT4TransformationDependsOn>
+      InitSyntonyT4Transformationn;
+      BeforeSyntonyT4Transformationn;
+      ValidateSyntonyT4Transformationn;
+      CoreSyntonyT4Transformationn;
+      AfterSyntonyT4Transformationn
+    </SyntonyT4TransformationDependsOn>
+  </PropertyGroup>
+  <Target Name="SyntonyT4Transformation" DependsOnTargets="$(SyntonyT4TransformationDependsOn)" AfterTargets="BeforeBuild">
+    <!-- https://github.com/loudej/crosswalk/blob/master/tools/msbuild/Microsoft.TextTemplating.targets -->
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    InitSyntonyT4Transformationn
+  ====================================================================================================================================================================================    -->
+  <Target Name="InitSyntonyT4Transformationn" DependsOnTargets="CreateT4ItemList;">
+    <PropertyGroup>
+      <_TransformationProgram>TextTransform.exe</_TransformationProgram>
+      <_TransformExe>$(SyntonySharedToolsDirectory)\$(_TransformationProgram)</_TransformExe>
+      <!-- Initial default value -->
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(_CommonProgramFiles))\Common Files\Microsoft Shared\TextTemplating\14.0\$(_TransformationProgram)</_TransformExe>
+      <!-- Initial default value -->
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(_CommonProgramFiles)\Microsoft Shared\TextTemplating\$(VisualStudioVersion)\$(_TransformationProgram)</_TransformExe>
+      <!-- If explicit VS version, override default -->
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(_CommonProgramFiles)\Common Files\Microsoft Shared\TextTemplating\$(VisualStudioVersion)\$(_TransformationProgram)</_TransformExe>
+      <!-- If explicit VS version, override default -->
+      <!-- Cascading probing if file not found -->
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(_CommonProgramFiles)\Microsoft Shared\TextTemplating\14.0\$(_TransformationProgram)"</_TransformExe>
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(_CommonProgramFiles)\Microsoft Shared\TextTemplating\13.0\$(_TransformationProgram)"</_TransformExe>
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(_CommonProgramFiles)\Microsoft Shared\TextTemplating\10.0\$(_TransformationProgram)"</_TransformExe>
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(_CommonProgramFiles)\Microsoft Shared\TextTemplating\11.0\$(_TransformationProgram)"</_TransformExe>
+      <_TransformExe Condition="!Exists('$(_TransformExe)')">$(_CommonProgramFiles)\Microsoft Shared\TextTemplating\12.0\$(_TransformationProgram)"</_TransformExe>
+    </PropertyGroup>
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    CreateCandidateT4ItemList
+  Description: creates an item list @(CandidateT4ItemList) that contains all of the items that should be considered when deciding which ones should be processed by T4.
+  ====================================================================================================================================================================================    -->
+  <Target Name="CreateT4ItemList" >
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   T 4 - T R A N S F O R M A T I O N   P R O P E R T I E S"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Creating a list of candidate items that might need to be processed by SyntonyT4Transformation." />
+
+    <!-- Create a list of all files if only hasn't been created already (we need this to work out which file are generated and which files they depend on. -->
+    <CreateItem Condition="@(CandidateT4ItemList)==''" Include="@(Compile);@(None);@(Content);@(EmbeddedResource)">
+      <Output ItemName="CandidateT4ItemList" TaskParameter="Include"/>
+    </CreateItem>
+
+    <Message Importance="$(SyntonyMessageImportance)" Text="Creating T4 items lists for project $(ProjectName) ($(ProjectPath)) ..." />
+
+    <!-- Specify the names of the T4 custom tools if they haven't already been set elsewhere. -->
+    <PropertyGroup>
+      <T4TransformCustomToolName Condition=" $(T4TransformCustomToolName)=='' ">TextTemplatingFileGenerator</T4TransformCustomToolName>
+      <T4PreprocessCustomToolName Condition=" $(T4PreprocessCustomToolName)=='' ">TextTemplatingFilePreprocessor</T4PreprocessCustomToolName>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <!-- Add any files that have the T4 transformation custom tool-->
+      <_T4TransformationInputs Include="@(CandidateT4ItemList)" Condition=" %(CandidateT4ItemList.Generator) == $(T4TransformCustomToolName) OR %(CandidateT4ItemList.Generator) == $(T4PreprocessCustomToolName)" />
+      <_T4TransformationInputs Include="@(T4Transform)" /> <!-- Add any files that are in the group T4Transform -->
+    </ItemGroup>
+
+    <CreateItem Include="@(_T4TransformationInputs)">
+      <Output ItemName="T4TransformationInputs" TaskParameter="Include"/>
+    </CreateItem>
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSyntonyT4Transformationn
+  Redefine this target in your project in order to run tasks just before CoreSyntonyT4Transformationn
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSyntonyT4Transformationn"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    ValidateSyntonyT4Transformationn
+  ====================================================================================================================================================================================    -->
+  <Target Name="ValidateSyntonyT4Transformationn">
+    <Message Importance="$(SyntonyMessageImportance)" Text="_TransformationProgram:   $(_TransformationProgram)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="_TransformExe:            $(_TransformExe)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="_TransformExe:            NOT FOUND!" Condition="!Exists('$(_TransformExe)')"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="T4TransformationInputs:   %(T4TransformationInputs.FullPath)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+
+    <Error Text="Failed to find $(_TransformationProgram) tool at '$(_TransformExe)." Condition="'@(T4TransformationInputs)' != '' AND !Exists('$(_TransformExe)')"/>
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    CoreSyntonyT4Transformationn
+  ====================================================================================================================================================================================    -->
+  <Target Name="CoreSyntonyT4Transformationn" Condition="'@(T4TransformationInputs)' != '' AND Exists('$(_TransformExe)')">
+    <!-- Perform task batching for each file -->
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="Exec &quot;$(_TransformExe)&quot; &quot;@(T4TransformationInputs)&quot;" Condition="'%(Identity)' != '' AND Exists('%(FullPath)')" />
+    
+    <Exec Command="&quot;$(_TransformExe)&quot; &quot;@(T4TransformationInputs)&quot;" Condition="'%(Identity)' != '' AND Exists('%(FullPath)')" />
+    
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSyntonyT4Transformationn
+  Redefine this target in your project in order to run tasks just after CoreSyntonyT4Transformationn
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSyntonyT4Transformationn"/>
+
+
+  <Import Project="($(MSBuildThisFileDirectory)Syntony.Common.targets" Condition="'$(SyntonyCommonTargetsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.targets')" />
+</Project>

@@ -1,0 +1,156 @@
+<!--
+***********************************************************************************************
+Syntony.HelpFileBuilder.targets
+***********************************************************************************************
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your Syntony projects from the command-line or the IDE.
+
+This file defines the steps in the standard build process specific for Syntony Framework projects.
+
+Copyright © 2013-2015 by Syntony - http://members.aon.at/hahnl - All rights reserved.
+
+By using the Import element, you can reuse code that is common to many project files. 
+This makes it easier to maintain the code because any updates you make to the shared code 
+get propagated to all the projects that import it.
+
+http://msdn.microsoft.com/en-us/library/92x05xfs.aspx
+http://msdn.microsoft.com/en-us/library/ms171464.aspx
+***********************************************************************************************
+-->
+
+<!-- this file is always stored in BRANCH\CommonProperties\SharedSources -->
+
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <Import Project="$(MSBuildThisFileDirectory)Syntony.Common.props" Condition="'$(CompanyPropsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.props')" />
+
+  <!-- This is used to determine whether Syntony.Common.targets needs to import Syntony.Common.props itself, or whether it has been imported previously, e.g. by the project itself. -->
+  <PropertyGroup>
+    <CompanyPropsHasBeenImported>true</CompanyPropsHasBeenImported>
+  </PropertyGroup>
+
+<!--
+  ====================================================================================================================================================================================
+                      Syntony Help File Builder (uses Sandcastle Help File Builder - SHFB) properties
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <BuildDocumentationSymbol Condition=" '$(BuildPackageSymbol)' == '' AND $([System.Text.RegularExpressions.Regex]::IsMatch($(DefineConstants), '^(.*;)*BUILD_DOCUMENTATION(;.*)*$'))">true</BuildDocumentationSymbol>
+    <BuildDocumentation Condition=" '$(BuildDocumentation)' == ''">false</BuildDocumentation>
+    <BuildDocumentation Condition=" '$(BuildDocumentation)' == 'true' OR '$(BuildDocumentationSymbol)' == 'true' OR '$(BuildDocumentationDefineValue)' == 'true'">true</BuildDocumentation>
+
+    <DocumentationConfiguration Condition="'$(DocumentationConfiguration)'==''">Release</DocumentationConfiguration>
+  </PropertyGroup>
+
+<!-- 
+  ====================================================================================================================================================================================
+                    Syntony Help File Builder (uses Sandcastle Help File Builder - SHFB)
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <SyntonyHelpFileBuilderDependsOn>
+      InitSyntonyHelpFileBuilder;
+      BeforeSyntonyHelpFileBuilder;
+      ValidateSyntonyHelpFileBuilder;
+      CoreSyntonyHelpFileBuilder;
+      AfterSyntonyHelpFileBuilder
+    </SyntonyHelpFileBuilderDependsOn>
+  </PropertyGroup>
+  <Target Name="BuildDocumentation" DependsOnTargets="$(SyntonyHelpFileBuilderDependsOn)" BeforeTargets="Build" Condition=" '$(Configuration)' == '$(DocumentationConfiguration)' AND '$(BuildDocumentation)' == 'true'" >
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    InitSyntonyHelpFileBuilder
+  ====================================================================================================================================================================================	-->
+  <Target Name="InitSyntonyHelpFileBuilder">
+    <Message Importance="$(SyntonyMessageImportance)" Text=" " />
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="S Y N T O N Y   -   H E L P F I L E B U I L D E R"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(SyntonySeparator)" />
+    <Message Importance="$(SyntonyMessageImportance)" Text="BuildDocumentation:          $(BuildDocumentation)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Configuration:               $(Configuration)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="DocumentationConfiguration:  $(DocumentationConfiguration)"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="ProjectDocsDirectory:        $(ProjectDocsDirectory)"/>
+
+    <Error Condition="'$(DocumentationFile)'==''" Text="DocumentationFile property not defined."/>
+
+    <ItemGroup>
+      <_SyntonyHelpFileBuilderFile Include="$(ProjectDir)*.shfbproj"/>
+    </ItemGroup>
+
+    <!--
+    https://github.com/EWSoftware/SHFB/issues/17
+    I've figured out what's going on. Somebody else reported this issue via e-mail with a reference to a project that was showing the problem. 
+    If your project is like that one, the SHFB project is in the same folder as the solution or the projects being documented.
+
+    SHFB always searches the current project folder and all subfolders for components it can use for presentation styles, build components, plug-ins etc. 
+    Unfortunately, MEF does not release assemblies even if they don't contain anything of use and thus they remain loaded in the app domain until the host exits.
+
+    The solution is simple. Move your SHFB project to a subfolder such as .\Doc or .\Documentation so that when it goes looking for components it won't find the assemblies being documented as they are outside the SHFB project's folder. 
+    You can run into a similar problem if the project's Component Path project property is set to a folder where it can find the documented assemblies too. 
+    Once the project is moved, you may need to adjust the paths to the documentation sources so that it can find them.
+
+    Since I always put my SHFB projects in a separate folder, I wasn't running into the issue. 
+    The project I ran into the issue with noted above also contained MEF components so it was a similar situation with the host not releasing the assemblies.
+    -->
+    <Error Text="SHFB project found in '$(ProjectDir)'. This is a bug in SHFB and does NOT release file handle. So a new rebuild crashes. Move SHFB projects in a sub-folder like '$(ProjectDocsDirectory)'." Condition="'@(_SyntonyHelpFileBuilderFile)' != ''"/>
+
+    <ItemGroup Condition="Exists('$(ProjectDocsDirectory)')">
+      <SyntonyHelpFileBuilderFile Include="$(ProjectDocsDirectory)*.shfbproj" Exclude="$(ProjectDir)*.shfbproj"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'@(SyntonyHelpFileBuilderFile)' != ''">
+      <DocTarget Include="$(TargetPath);$(DocumentationFile);" />
+    </ItemGroup>
+
+    <!-- http://www.paraesthesia.com/archive/2011/09/28/make-your-sandcastle-help-file-builder-project-dynamic-with-msbuild.aspx/ -->
+    <CreateProperty Value="@(DocTarget -> '&lt;DocumentationSource sourceFile=%27%(FullPath)%27 /&gt;', '')" Condition="'@(SyntonyHelpFileBuilderFile)' != ''">
+      <Output TaskParameter="Value" PropertyName="DocumentationSources" />
+    </CreateProperty>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    ValidateSyntonyHelpFileBuilder
+  ====================================================================================================================================================================================	-->
+  <Target Name="ValidateSyntonyHelpFileBuilder">
+    <Message Importance="$(SyntonyMessageImportance)" Text="no Sandcastle project files" Condition="'@(SyntonyHelpFileBuilderFile)' == ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="Sandcastle project files:    %(SyntonyHelpFileBuilderFile.Identity)" Condition="'@(SyntonyHelpFileBuilderFile)' != ''"/>
+    <Message Importance="$(SyntonyMessageImportance)" Text="$(DocumentationSources)" Condition="'@(SyntonyHelpFileBuilderFile)' == ''"/>
+
+    <Error Condition="'$(DocumentationFile)'==''" Text="DocumentationFile property not defined."/>
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    CoreSyntonyHelpFileBuilder
+  ====================================================================================================================================================================================	-->
+  <Target Name="CoreSyntonyHelpFileBuilder" Condition="'@(SyntonyHelpFileBuilderFile)' != ''">
+    <MSBuild ToolsVersion="4.0" Projects="%(SyntonyHelpFileBuilderFile.FullPath)" Properties="DocumentationSources=$(DocumentationSources)" />
+
+    <!--
+    <Exec Command="&quot;$(windir)\Microsoft.NET\Framework\v3.5\MSBuild.exe&quot; &quot;%(SyntonyHelpFileBuilderFile.FullPath)&quot; /p:DocumentationSources=&quot;$(DocumentationSources)&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" />
+    -->
+
+    <OnError ExecuteTargets="SyntonyBuildError" />
+  </Target>
+
+  <!--
+  ====================================================================================================================================================================================
+                    BeforeSyntonyHelpFileBuilder
+  Redefine this target in your project in order to run tasks just before CoreSyntonyHelpFileBuilder
+  ====================================================================================================================================================================================    -->
+  <Target Name="BeforeSyntonyHelpFileBuilder"/>
+
+  <!--
+  ====================================================================================================================================================================================
+                    AfterSyntonyHelpFileBuilder
+  Redefine this target in your project in order to run tasks just after CoreSyntonyHelpFileBuilder
+  ====================================================================================================================================================================================    -->
+  <Target Name="AfterSyntonyHelpFileBuilder"/>
+
+  <Import Project="($(MSBuildThisFileDirectory)Syntony.Common.targets" Condition="'$(SyntonyCommonTargetsHasBeenImported)' != 'true' and Exists('$(MSBuildThisFileDirectory)Syntony.Common.targets')" />
+</Project>

@@ -1,0 +1,678 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+***********************************************************************************************
+Syntony.Common.tasks ... A file that contains Syntony UsingTask declarations
+***********************************************************************************************
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your Syntony projects from the command-line or the IDE.
+
+This file defines the steps in the standard build process specific for Syntony Framework projects.
+
+Copyright © 2013-2015 by Syntony - http://members.aon.at/hahnl - All rights reserved.
+
+By using the Import element, you can reuse code that is common to many project files. 
+This makes it easier to maintain the code because any updates you make to the shared code 
+get propagated to all the projects that import it.
+
+http://msdn.microsoft.com/en-us/library/92x05xfs.aspx
+http://msdn.microsoft.com/en-us/library/ms171464.aspx
+***********************************************************************************************
+-->
+
+<!-- this file is always stored in BRANCH\CommonProperties\SharedSources -->
+
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <!-- This is used to determine whether other Syntony tasks (Syntony.*.tasks) needs to import Syntony.Common.tasks itself, or whether it has been imported previously, e.g. by the project itself. -->
+  <PropertyGroup>
+    <SyntonyCommonTasksHasBeenImported>true</SyntonyCommonTasksHasBeenImported>
+  </PropertyGroup>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    SetEnvironmentVariableTask
+  ====================================================================================================================================================================================	-->
+  <UsingTask TaskName="SetEnvironmentVariableTask" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+      <Name ParameterType="System.String" Required="true" />
+      <Value ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+
+    <Task>
+      <Using Namespace="System" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+      Environment.SetEnvironmentVariable(Name, Value);
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    DownloadNuGet
+  ====================================================================================================================================================================================	-->
+  <UsingTask TaskName="DownloadNuGet" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+      <OutputFilename ParameterType="System.String" Required="true" />
+      <ForceDownload ParameterType="System.Boolean" Required="true" />
+      <SyntonyMessageImportance ParameterType="System.String"/>
+    </ParameterGroup>
+    <Task>
+      <Reference Include="System.Core" />
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Net" />
+      <Using Namespace="Microsoft.Build.Framework" />
+      <Using Namespace="Microsoft.Build.Utilities" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+            try 
+            {
+              MessageImportance importance;
+              if (string.IsNullOrEmpty(SyntonyMessageImportance))
+              {
+                importance = MessageImportance.Normal;
+              }
+              else
+              {
+                importance = Enum.TryParse<MessageImportance>(SyntonyMessageImportance, true, out importance) ? importance : MessageImportance.Normal;
+              }
+            
+              Log.LogMessage(importance, " ");
+              OutputFilename = Path.GetFullPath(OutputFilename);
+              if(ForceDownload && File.Exists(OutputFilename))
+              {
+                Log.LogMessage(importance, "Force NuGet.exe download ... existing file will be deleted.");
+                File.Delete(OutputFilename);
+              }
+
+              if (!Directory.Exists(Path.GetDirectoryName(OutputFilename)))
+              {
+                Log.LogMessage(importance, "Create NuGet.exe directory {0}.", Path.GetDirectoryName(OutputFilename));
+                Directory.CreateDirectory(Path.GetDirectoryName(OutputFilename));
+              }
+              
+              Log.LogMessage(importance, "Downloading latest version of NuGet.exe ...");
+              WebClient webClient = new WebClient();
+              webClient.DownloadFile("https://www.nuget.org/nuget.exe", OutputFilename);
+              Log.LogMessage(importance, "Download NuGet.exe finished.");
+
+              return true;
+            }
+            catch (Exception ex) 
+            {
+              Log.LogMessage(MessageImportance.High, new string('*', 160));
+              Log.LogErrorFromException(ex);
+              Log.LogMessage(MessageImportance.High, new string('*', 160));
+              return false;
+            }
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    Detect NUnit failures  -> currently for NUnit 2 and NUnit 3
+  ====================================================================================================================================================================================	-->
+  <UsingTask TaskName="DetectTestFailureFromFile" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+      <File Required="true" />
+      <Version Required="true" />
+      <Failures ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <!-- for NUnit 2: XmlRead with <TestRunnerFailureXPath Condition="'$(TestRunnerFailureXPath)'==''">string(/test-results/test-suite/results//*[starts-with(name(),'failure')])</TestRunnerFailureXPath> -->
+      <Reference Include="System.Core" />
+      <Reference Include="System.Xml" />
+      <Reference Include="Microsoft.Build"/>
+      <Reference Include="Microsoft.Build.Framework"/>
+      <Using Namespace="System" />
+      <Using Namespace="System.Collections" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Using Namespace="System.Xml" />
+      <Using Namespace="Microsoft.Build.Evaluation"/>
+      <Using Namespace="Microsoft.Build.Execution"/>
+      <Using Namespace="Microsoft.Build.Utilities"/>
+      <Using Namespace="Microsoft.Build.Framework"/>
+      <!-- there are two files possible:
+        @(TestAssemblies->'$(TestResultsDirectory)\%(FileName).MsTestResults.xml')  	==> IsMSTest == true
+        @(TestAssemblies->'$(TestResultsDirectory)\%(FileName).NUnitTestResults.xml') 	==> IsNUnit == true
+      -->
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+        var list = new List<ITaskItem>();
+        try 
+        {
+          XmlDocument doc = new XmlDocument();
+          doc.Load(File);
+          
+          bool isMsTest = false;
+          bool isNUnitTest = false;
+          bool isXUnitTest = false;
+          if (File.EndsWith("MsTestResults.xml", StringComparison.OrdinalIgnoreCase))
+          {
+            isMsTest = true;
+          }
+          else if (File.EndsWith("NUnitTestResults.xml", StringComparison.OrdinalIgnoreCase))
+          {
+            isNUnitTest = true;
+          }
+          else if (File.EndsWith("xUnitTestResults.xml", StringComparison.OrdinalIgnoreCase))
+          {
+            isXUnitTest = true;
+          }
+          
+          if (isMsTest)
+          {
+            XmlNodeList nodes = doc.GetElementsByTagName("ErrorInfo");
+            int i = 0;
+            foreach (XmlNode node in nodes)
+            {
+              if (node.ParentNode != null && node.ParentNode.ParentNode != null && node.ParentNode != null && node["StackTrace"] != null && node["Message"] != null && node.ParentNode.ParentNode.Attributes != null)
+              {
+                var metadata = new Dictionary<string, string>();
+                XmlAttribute nameAttribute = node.ParentNode.ParentNode.Attributes["testName"];
+                var itemIdentity = nameAttribute == null ? string.Empty : nameAttribute.Value;
+                metadata.Add("Message", node["Message"].InnerText.TrimEnd('\r', '\n'));
+                metadata.Add("StackTrace", node["StackTrace"].InnerText.Trim());
+                metadata.Add("Number", (++i).ToString());
+
+                list.Add(new TaskItem(itemIdentity, metadata));
+              }
+            }
+          }
+          else if (isNUnitTest || isXUnitTest)
+          {
+            XmlNodeList nodes = doc.SelectNodes("//failure/message");
+            if (nodes == null)
+            {
+              Failures = list.ToArray();
+              return true;
+            }
+
+            int i = 0;
+            foreach (XmlNode node in nodes)
+            {
+              if (node.ParentNode != null && (node.ParentNode.ParentNode != null && (node.ParentNode != null && (node.ParentNode["stack-trace"] != null && node.ParentNode.ParentNode.Attributes != null))))
+              {
+                string itemIdentity;
+                var metadata = new Dictionary<string, string>();
+
+                XmlAttribute nameAttribute = node.ParentNode.ParentNode.Attributes["fullname"] ?? node.ParentNode.ParentNode.Attributes["name"];
+                itemIdentity = nameAttribute.Value;
+                // metadata.Add("Message", Regex.Replace(node.InnerText.TrimEnd('\r', '\n').Replace("\r\n"," ... "), @"\s+", " ", RegexOptions.Multiline).Trim());
+                metadata.Add("Message", node.InnerText.TrimEnd('\r', '\n'));
+                metadata.Add("StackTrace", node.ParentNode["stack-trace"].InnerText.Trim());
+                metadata.Add("Number", (++i).ToString());
+
+                list.Add(new TaskItem(itemIdentity, metadata));
+              }
+            }
+          }
+        }
+        catch (Exception ex)
+        {
+          Log.LogMessage(MessageImportance.High, new string('*', 160));
+          Log.LogMessage(MessageImportance.High, "E X C E P T I O N   I N   D E T E C T N U N I T F A I L U R E S");
+          Log.LogErrorFromException(ex);
+          Log.LogMessage(MessageImportance.High, new string('*', 160));
+        }
+        
+        
+        Failures = list.ToArray();
+        return true;
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    Filter List
+  ====================================================================================================================================================================================	-->
+  <UsingTask TaskName="FilterList" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll" >
+    <ParameterGroup>
+      <ListToFilter ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Filter Required="true" />
+      <FilteredList ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+        var results = ListToFilter.Where(l => Regex.IsMatch(l.ItemSpec, Filter, RegexOptions.IgnoreCase)).ToList();
+        FilteredList = results.ToArray();
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!-- 
+  ====================================================================================================================================================================================
+                    DelteAllSubDirectories
+  ====================================================================================================================================================================================	-->
+  <UsingTask TaskName="DelteAllSubDirectories" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll" >
+    <ParameterGroup>
+      <Folder Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+        try
+        {
+          DirectoryInfo directoryInfo = new DirectoryInfo(Folder);
+          foreach (DirectoryInfo subfolder in directoryInfo.GetDirectories())
+          {
+            Directory.Delete(subfolder.FullName, true);
+          }
+        }
+        catch (Exception ex)
+        {
+          Log.LogMessage(MessageImportance.High, new string('*', 160));
+          Log.LogMessage(MessageImportance.High, "E X C E P T I O N   I N   D E L E T E A L L S U B D I R E C T O R I E S");
+          Log.LogErrorFromException(ex);
+          Log.LogMessage(MessageImportance.High, new string('*', 160));
+        }
+          
+        return true;
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!--
+  ====================================================================================================================================================================================
+                         FilterCandidatesBasedOnItemSpec
+  ====================================================================================================================================================================================
+  Description: 
+   Returns the items from the CandidateItemList for which there is an item with the same itemspec in the ItemSpecList.
+  ====================================================================================================================================================================================	-->
+  <UsingTask TaskName="FilterCandidatesBasedOnItemSpec" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll" >
+    <ParameterGroup>
+      <CandidateItemList ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <ItemSpecList ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Result ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+
+    <Task>
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+              var matches = from candidate in CandidateItemList
+              join spec in ItemSpecList
+              on candidate.ItemSpec.ToUpperInvariant() equals spec.ItemSpec.ToUpperInvariant()
+              select candidate;
+              
+              Result = matches.ToArray();
+      ]]>
+      </Code>
+    </Task>
+
+  </UsingTask>
+
+  <!--
+  ============================================================
+        RegexTransform
+   
+  Transforms the input Items parameter by evaluating the
+  regular expression in their Find metadata and
+  replacing with their ReplaceWith metadata. Optional, the
+  options for the regular expression evaluation can be specified.
+   
+  Example input item:
+      <RegexTransform Include="$(BuildRoot)Src\GlobalAssemblyInfo.cs">
+        <Find>AssemblyFileVersion\(".*?"\)</Find>
+        <ReplaceWith>AssemblyFileVersion("$(FileVersion)")</ReplaceWith>
+        <Options>Multiline | IgnorePatternWhitespace</Options>
+      </RegexTransform>
+   
+  Invoking the target:
+    <RegexTransform Items="@(RegexTransform)" />
+  ============================================================
+  -->
+  <UsingTask TaskName="RegexTransform"
+         TaskFactory="CodeTaskFactory"
+         AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+      <Items ParameterType="Microsoft.Build.Framework.ITaskItem[]" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Using Namespace="Microsoft.Build.Framework" />
+      <Code Type="Fragment"
+          Language="cs">
+        <![CDATA[
+       foreach(var item in Items)
+       {
+       string fileName = item.GetMetadata("FullPath");
+       string find = item.GetMetadata("Find");
+       string replaceWith = item.GetMetadata("ReplaceWith");
+       string optionsValue = item.GetMetadata("Options") ?? "";
+   
+       var options = string.IsNullOrWhiteSpace(optionsValue) ?
+         RegexOptions.None : (RegexOptions)Enum.Parse(typeof(RegexOptions), optionsValue.Replace('|', ','));
+   
+       if(!File.Exists(fileName))
+       {
+         Log.LogError("Could not find file: {0}", fileName);
+         return false;
+       }
+       string content = File.ReadAllText(fileName);
+       File.WriteAllText(
+         fileName,
+         Regex.Replace(
+         content,
+         find,
+         replaceWith,
+         options
+         )
+       );
+       }
+     ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+  
+<!--
+    ============================================================
+        ReadAssemblyVersion
+
+    Reads the given File input parameter, which should contain 
+    an [AssemblyVersion] attribute, and parses the version 
+    components into the following output parameters:
+        * Major
+        * Minor
+        * Revision
+        * Build
+    ============================================================
+    -->
+    <UsingTask TaskName="ReadAssemblyVersion"
+               TaskFactory="CodeTaskFactory"
+               AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+        <ParameterGroup>
+            <File Required="true" />
+            <Major Output="true" ParameterType="System.Int32" />
+            <Minor Output="true" ParameterType="System.Int32" />
+            <Revision Output="true" ParameterType="System.Int32" />
+            <Build Output="true" ParameterType="System.Int32" />
+        </ParameterGroup>
+        <Task>
+            <Using Namespace="System.Text.RegularExpressions"/>
+            <Code Type="Fragment"
+                Language="cs">
+                <![CDATA[
+                if (!System.IO.File.Exists(this.File))
+                {
+                    Log.LogError(null, null, null, null, 0, 0, 0, 0, String.Format("Could not find file: {0}", this.File), new object[0]);
+                    return false;
+                }
+
+                var contents = System.IO.File.ReadAllText(this.File);
+                var reg = new Regex(@"AssemblyVersion\(""(?<major>\d+)\.(?<minor>\d+)(\.(?<build>\d+))?(\.(?<revision>\d+))?""\)");
+
+                var match = reg.Match(contents);
+
+                this.Major = int.Parse(match.Groups["major"].Value);
+                this.Minor = int.Parse(match.Groups["minor"].Value);
+                if (match.Groups["build"].Success)
+                    this.Build = int.Parse(match.Groups["build"].Value);
+                if (match.Groups["revision"].Success)
+                    this.Revision = int.Parse(match.Groups["revision"].Value);
+                ]]>
+            </Code>
+        </Task>
+    </UsingTask>
+  
+<UsingTask TaskName="ReadProject" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+        <ParameterGroup>
+            <ProjectFile ParameterType="System.String" Required="true" />
+            <IncludedItemNames ParameterType="System.String" Required="true" />
+            <RootNamespace ParameterType="System.String" Output="true" />
+            <FrameworkName ParameterType="System.String" Output="true" />
+            <Content ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+        </ParameterGroup>
+        <Task>
+            <Reference Include="System.Xml"/>
+            <Reference Include="System.Xml.Linq"/>
+            <Using Namespace="System.IO"/>
+            <Using Namespace="System.Xml"/>
+            <Using Namespace="System.Xml.Linq"/>
+            <Using Namespace="System.Xml.XPath"/>
+            <Code Type="Fragment" Language="cs">
+                <![CDATA[
+            this.Log.LogMessage(MessageImportance.High, "Reading project file {0}", this.ProjectFile);
+            var baseDir = Path.GetDirectoryName(this.ProjectFile);
+            var doc = XDocument.Load(this.ProjectFile);
+            var ns = "{http://schemas.microsoft.com/developer/msbuild/2003}";
+            this.RootNamespace = doc.Root.Elements(ns + "PropertyGroup")
+                .SelectMany(e => e.Elements(ns + "RootNamespace"))
+                .Select(e => e.Value)
+                .First();
+                
+            this.FrameworkName = doc.Root.Elements(ns + "PropertyGroup")
+                .SelectMany(e => e.Elements(ns + "FrameworkName"))
+                .Select(e => e.Value)
+                .First();
+
+            this.Content = doc.Root.Elements(ns + "ItemGroup")
+                .SelectMany(e => e.Elements().Where(x => this.IncludedItemNames.Contains(x.Name.LocalName)))
+                .Select(e => e.Attribute("Include").Value)
+                .Select(x => new TaskItem(Path.Combine(baseDir, x), new Dictionary<string, string>
+                {
+                    { "RelativePath", Path.GetDirectoryName(x).Length == 0 ? "" : Path.GetDirectoryName(x) + Path.DirectorySeparatorChar },
+                }))
+                .ToArray();
+
+            this.Log.LogMessage(MessageImportance.High, "Read {0} items", this.Content.Length);
+]]>
+            </Code>
+        </Task>
+    </UsingTask>
+
+
+  <UsingTask TaskName="RegexReplace" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll" >
+    <ParameterGroup>
+      <Input Required="true"/>
+      <Pattern Required="true"/>
+      <Replacement Required="true"/>
+      <Result Output="true"/>
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs">
+      <![CDATA[
+        Result = Regex.Replace(Input, Pattern, Replacement);
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+  
+  <UsingTask TaskName="RegexReplaceWithCount" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll" >
+    <ParameterGroup>
+      <Input Required="true"/>
+      <Pattern Required="true"/>
+      <Replacement Required="true"/>
+      <Count Required="true"/>
+      <Result Output="true"/>
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs">
+      <![CDATA[
+        Regex rgx = new Regex(Pattern);
+        Result = rgx.Replace(Input, Replacement, Count);
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <UsingTask TaskName="IsProcessRunning " TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll" >
+    <ParameterGroup>
+      <ProcessName ParameterType="System.String" Required="true"/>
+      <IsRunning ParameterType="System.Boolean" Output="true"/>
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs">
+      <![CDATA[
+      if(string.IsNullOrEmpty(ProcessName))
+      {
+        IsRunning = false;
+        return;
+      }
+
+      foreach(Process clsProcess in Process.GetProcesses())
+      {
+        if(clsProcess.ProcessName.Contains(processName))
+        {
+          IsRunning = true;
+          return;
+        }
+      }
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <UsingTask TaskName="GetProperty" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll" >
+    <ParameterGroup>
+      <Input ParameterType="System.String" Required="true"/>
+      <Value ParameterType="System.String" Output="true"/>
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs">
+      <![CDATA[
+        Value = Input;
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+  
+  <UsingTask TaskName="IsFileReadOnly" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+      <FileName ParameterType="System.String" Required="true" />
+      <IsReadOnly ParameterType="System.Boolean" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO"/>
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+          IsReadOnly = new FileInfo(this.FileName).IsReadOnly;
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+  
+  <!-- find user file in parent directory -->
+  <UsingTask TaskName="FindUserFile" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+      <CurrentDirName ParameterType="System.String" Required="true" />
+      <FileToFind ParameterType="System.String" Required="true" />
+      <UserFileName ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System"/>
+      <Using Namespace="System.IO"/>
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+          while(CurrentDirName != Directory.GetDirectoryRoot(CurrentDirName) && !File.Exists(CurrentDirName + Path.DirectorySeparatorChar + FileToFind))
+          {
+            CurrentDirName = Directory.GetParent(CurrentDirName).FullName;
+          }
+          
+          if(File.Exists(CurrentDirName + Path.DirectorySeparatorChar + FileToFind)) 
+          {
+            UserFileName = CurrentDirName + Path.DirectorySeparatorChar + FileToFind;
+          }
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+  
+  <UsingTask TaskName="GetTimeStamp" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+      <TimeStamp ParameterType="System.Int64" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Diagnostics" />
+      <Code Type="Fragment" Language="cs">
+      <![CDATA[ TimeStamp = System.Diagnostics.Stopwatch.GetTimestamp(); ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <UsingTask TaskName="GetElapsedTimeSpan" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+      <ElapsedTimeSpan ParameterType="System.String" Output="true" />
+      <StartTicks ParameterType="System.Int64" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Diagnostics" />
+      <Code Type="Fragment" Language="cs">
+      <![CDATA[
+
+      // We can get the current timestamp and then calculate the elapsed ticks. To improve
+      // accuracy of the benchmark, you could expose another task parameter to allow passing in the
+      // current ticks, so that the overhead of calling this task isn't included in the elapsed
+      // calculation.
+      var currentTicks = Stopwatch.GetTimestamp();
+      var elapsedTicks = currentTicks - StartTicks;
+
+      // This code is taken from a combination of the static constructor and private GetElapsedDateTimeTicks method in Stopwatch.
+      if (Stopwatch.IsHighResolution)
+      {
+        var tickFrequency = 10000000.0d / (double) Stopwatch.Frequency;
+        elapsedTicks = (long) ((double) elapsedTicks * tickFrequency);
+      }
+
+      // Now we can get a more human-readable elapsed time. Unfortunately we can't return the TimeSpan
+      // as a parameter, as it doesn't implement IConvertible. So we'll just convert it to a string.
+      // If you really want to do more with the resulting TimeSpan, you could always refactor this to return the ticks,
+      // and create the TimeSpan using property functions as in the DateTime example (the Elapsed property).
+      ElapsedTimeSpan = TimeSpan.FromTicks(elapsedTicks).ToString();
+
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <UsingTask TaskName="NativeZip" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+      <InputFileNames ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <OutputFileName ParameterType="System.String" Required="true" />
+      <OverwriteExistingFile ParameterType="System.Boolean" Required="false" />
+      <Flatten ParameterType="System.Boolean" Required="false" />
+      <RemoveRoot ParameterType="System.String" Required="false" />
+    </ParameterGroup>
+    <Task>
+      <Reference Include="System.IO.Compression" />
+      <Using Namespace="System.IO.Compression" />
+      <Code Type="Fragment" Language="cs">
+      <![CDATA[        
+      var fileMode = OverwriteExistingFile ? FileMode.Create : FileMode.CreateNew;
+      Directory.CreateDirectory(Path.GetDirectoryName(OutputFileName));
+      using (var archive = new ZipArchive(new FileStream(OutputFileName, fileMode), ZipArchiveMode.Create))
+      {
+        foreach (var inputFileName in InputFileNames.Select(f => f.ItemSpec))
+        {
+          var archiveName = Flatten ? Path.GetFileName(inputFileName) : (String.IsNullOrEmpty(RemoveRoot) ? inputFileName : inputFileName.Replace(RemoveRoot, ""));
+          var archiveEntry = archive.CreateEntry(archiveName);
+          using (var fs = new FileStream(inputFileName, FileMode.Open))
+          {
+            using (var zipStream = archiveEntry.Open())
+            {
+              fs.CopyTo(zipStream);
+            }
+          }
+        }
+      }
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+</Project>

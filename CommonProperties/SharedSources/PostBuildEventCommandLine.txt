@@ -1,0 +1,101 @@
+************************************************************************************************************************************************************************************************************************************************************************************************
+************************************************************************************************************************************************************************************************************************************************************************************************
+************************************************************************************************************************************************************************************************************************************************************************************************
+if errorlevel 1 goto BuildEventFailed
+
+REM echo Uninstalls an assembly from the global assembly cache.
+REM "C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.6 Tools\gacutil.exe" -u "$(TargetName)"
+
+REM copy files to SharedBinaries location
+xcopy "$(TargetDir)*.pdb" ..\..\..\..\..\SharedBinaries\Syntony /y /s
+xcopy "$(TargetDir)*.dll" ..\..\..\..\..\SharedBinaries\Syntony /y /s
+xcopy "$(TargetDir)*.config" ..\..\..\..\..\SharedBinaries\Syntony /y /s
+
+if $(ConfigurationName) == Release (
+  echo RELEASE build step.
+
+   REM echo Installs an assembly into the global assembly cache. If an assembly with the same name already exists in the global assembly cache, the tool overwrites it.
+   REM "C:\Program Files (x86)\Microsoft SDKs\Windows\v8.0A\bin\NETFX 4.0 Tools\gacutil.exe" -if "$(TargetPath)"
+   if errorlevel 1 goto BuildEventFailed
+) ELSE (
+   echo DEBUG postbuild step.
+
+   if errorlevel 1 goto BuildEventFailed
+)
+
+REM Exit properly because the build will not fail
+REM unless the final step exits with an error code
+goto BuildEventOK
+
+:BuildEventFailed
+echo POSTBUILD step for $(ProjectName) FAILED!
+exit 1
+
+:BuildEventOK
+echo POSTBUILD step for $(ProjectName) COMPLETED OK
+
+************************************************************************************************************************************************************************************************************************************************************************************************
+************************************************************************************************************************************************************************************************************************************************************************************************
+************************************************************************************************************************************************************************************************************************************************************************************************
+
+
+echo POSTBUILD step $(ConfigurationName) for $(ProjectName)
+if errorlevel 1 goto BuildEventFailed
+
+REM echo Uninstalls an assembly from the global assembly cache.
+REM "C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.6 Tools\gacutil.exe" -u "$(TargetName)"
+
+REM now gerenate NuGet package
+..\..\..\..\..\SharedBinaries\NuGet\NuGet Pack "$(ProjectPath)"
+xcopy "$(TargetDir)*.nupkg" ..\..\..\..\..\..\SharedBinaries\Packages /y
+del "$(TargetDir)*.nupkg"
+if errorlevel 1 goto BuildEventFailed
+
+if $(ConfigurationName) == Release (
+  echo RELEASE build step.
+   del "$(TargetDir)Syntony.Framework.config"
+   del "$(TargetDir)app.config"
+   copy "$(TargetPath).config" "$(TargetDir)Syntony.Framework.config"
+   xcopy "$(TargetDir)*.config" ..\..\..\UnitTests\binRelease /y
+   xcopy "$(TargetDir)*.config" ..\..\..\IntegrationTests\binRelease /y
+   xcopy "$(TargetDir)*.dll" ..\..\..\..\..\..\SharedBinaries\Syntony /y /s
+   xcopy "$(TargetDir)*.config" ..\..\..\..\..\..\SharedBinaries\Syntony /y /s
+   xcopy "$(TargetDir)*.pdb" ..\..\..\..\..\..\SharedBinaries\Syntony /y /s
+   xcopy "$(TargetDir)*.dll" ..\..\..\..\..\SharedBinaries\Syntony /y /s
+   xcopy "$(TargetDir)*.config" ..\..\..\..\..\SharedBinaries\Syntony /y /s
+   xcopy "$(TargetDir)*.pdb" ..\..\..\..\..\SharedBinaries\Syntony /y /s
+   if errorlevel 1 goto BuildEventFailed
+
+   REM echo Installs an assembly into the global assembly cache. If an assembly with the same name already exists in the global assembly cache, the tool overwrites it.
+   REM "C:\Program Files (x86)\Microsoft SDKs\Windows\v8.0A\bin\NETFX 4.0 Tools\gacutil.exe" -if "$(TargetPath)"
+   if errorlevel 1 goto BuildEventFailed
+) ELSE (
+   echo DEBUG postbuild step.
+   del "$(TargetDir)Syntony.Framework.config"
+   del "$(TargetDir)app.config"
+   copy "$(TargetPath).config" "$(TargetDir)Syntony.Framework.config"
+   xcopy "$(TargetDir)*.config" ..\..\..\UnitTests\bin\Debug /y
+   xcopy "$(TargetDir)*.config" ..\..\..\IntegrationTests\bin\Debug /y
+   xcopy "$(TargetDir)*.dll" ..\..\..\..\..\..\SharedBinaries\Syntony /y /s
+   xcopy "$(TargetDir)*.config" ..\..\..\..\..\..\SharedBinaries\Syntony /y /s
+   xcopy "$(TargetDir)*.pdb" ..\..\..\..\..\..\SharedBinaries\Syntony /y /s
+   xcopy "$(TargetDir)*.dll" ..\..\..\..\..\SharedBinaries\Syntony /y /s
+   xcopy "$(TargetDir)*.config" ..\..\..\..\..\SharedBinaries\Syntony /y /s
+   xcopy "$(TargetDir)*.pdb" ..\..\..\..\..\SharedBinaries\Syntony /y /s
+   if errorlevel 1 goto BuildEventFailed
+)
+
+REM Exit properly because the build will not fail
+REM unless the final step exits with an error code
+goto BuildEventOK
+
+:BuildEventFailed
+echo POSTBUILD step for $(ProjectName) FAILED!
+exit 1
+
+:BuildEventOK
+echo POSTBUILD step for $(ProjectName) COMPLETED OK
+
+************************************************************************************************************************************************************************************************************************************************************************************************
+************************************************************************************************************************************************************************************************************************************************************************************************
+************************************************************************************************************************************************************************************************************************************************************************************************

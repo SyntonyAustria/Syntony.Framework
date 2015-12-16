@@ -1,0 +1,364 @@
+<!--
+***********************************************************************************************
+Syntony.Common.props
+***********************************************************************************************
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your Syntony projects from the command-line or the IDE.
+
+This file defines the steps in the standard build process specific for Syntony Framework projects.
+
+Copyright © 2013-2015 by Syntony - http://members.aon.at/hahnl - All rights reserved.
+
+By using the Import element, you can reuse code that is common to many project files. 
+This makes it easier to maintain the code because any updates you make to the shared code 
+get propagated to all the projects that import it.
+
+http://msdn.microsoft.com/en-us/library/92x05xfs.aspx
+http://msdn.microsoft.com/en-us/library/ms171464.aspx
+***********************************************************************************************
+-->
+
+<!-- this file is always stored in BRANCH\CommonProperties\SharedSources -->
+
+<!--
+  Important properties:
+    <Company> ... the name of the company ... default set to 'Syntony' ... should be set by *.csproj file if not a Syntony project
+    <Syntony> ... default set to true ... should be set by *.csproj file to false if not a Syntony project
+    <DebugSyntonyBuild> ... default set to false ... if true run this MSBuild with verbose information
+    
+    <RunTests> ... default set to false ... if true run tests if a reference to NUnit or MsTest is detected
+    <BuildDocumentation> ... default set to true ... if true build documentation via SHFB if a *.shfbproj file is detected
+    <RestorePackages> ... default set to true ... if true restores all referenced NuGet packages
+    <BuildPackage> ... default set to false ...  if true the current project is packed to a NuGet package *.nupkg
+    <PublishPackage> ... default set to false ... if true the NuGet package *.nupkg is published to NuGet.org and the local server
+-->
+
+<!--EXTERNAL_PROPERTIES: VisualStudioVersion;MSBuildThisFileDirectory-->
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+  ====================================================================================================================================================================================
+                      SYNTONY common properties
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup>
+    <Company Condition="'$(Company)'=='' OR '$(Syntony)' == 'true'">Syntony</Company> <!-- by default we have a SYNTONY environment so our company is named SYNTONY -->
+    <Syntony Condition="'$(Syntony)' == '' OR '$(Company)' == 'Syntony'">true</Syntony> <!-- by default we have a SYNTONY environment; to disable SYNTONY environment in *.csproj file define <Syntony>false</Syntony> -->
+    <SyntonyTestEnvironment Condition="'$(SyntonyTestEnvironment)'=='' AND $(AssemblyName.Contains('Test'))">true</SyntonyTestEnvironment> <!-- by default it is NOT a TEST environment; to set to TEST in *.csproj file define <SyntonyTestEnvironment>true</SyntonyTestEnvironment> -->
+    <SyntonyTestEnvironment Condition="'$(SyntonyTestEnvironment)'=='' ">false</SyntonyTestEnvironment> <!-- by default it is NOT a TEST environment; to set to TEST in *.csproj file define <SyntonyTestEnvironment>true</SyntonyTestEnvironment> -->
+    <Silent Condition="'$(Silent)'=='' ">false</Silent>
+    
+    <DebugSyntonyBuild Condition="'$(DebugSyntonyBuild)'==''">false</DebugSyntonyBuild> <!-- by default the Syntony build targets are NOT in DEBUG mode; to set to DEBUG mode in *.csproj file define <DebugSyntonyBuild>true</DebugSyntonyBuild> -->
+    <Silent Condition="'$(DebugSyntonyBuild)'=='true' ">true</Silent>
+
+    <StartTicks>$([System.DateTime]::UtcNow.Ticks)</StartTicks>
+    <Now>$([System.DateTime]::Now.ToString("yyyy-MM-dd HH:mm:ss"))</Now> <!-- The current date and time -->
+    <Today>$([System.DateTime]::Now.ToString("yyyy-MM-dd"))</Today>
+    <CompanyGuid>$([System.Guid]::NewGuid())</CompanyGuid>
+
+    <SyntonyCommonDrive>$([System.IO.Path]::GetPathRoot($(MSBuildThisFileFullPath)))</SyntonyCommonDrive>
+    <ProjectDrive Condition="'$(ProjectDrive)'==''">$([System.IO.Path]::GetPathRoot($(MSBuildProjectFullPath)))</ProjectDrive>
+    
+    <SharedBinariesDirectoryName Condition="'$(SharedBinariesDirectoryName)' == ''">SharedBinaries</SharedBinariesDirectoryName> 
+    <SharedToolsDirectoryName Condition="'$(SharedToolsDirectoryName)' == ''">Tools</SharedToolsDirectoryName> 
+    
+    <DocsDirectoryName Condition="'$(DocsDirectoryName)' == ''">Docs</DocsDirectoryName>
+    <_ProjectDocsDirectory Condition="'$(ProjectDocDirectory)' == ''">$(MSBuildProjectDirectory)\..\$(DocsDirectoryName)\</_ProjectDocsDirectory>
+    <ProjectDocsDirectory  Condition="'$(ProjectDocsDirectory)'=='' Or !Exists('$(ProjectDocsDirectory)')">$([System.IO.Path]::GetFullPath($(_ProjectDocsDirectory)))</ProjectDocsDirectory>
+
+    <TestResultsDirectoryName Condition="'$(TestResultsDirectoryName)' == ''">TestResults</TestResultsDirectoryName>
+    <MsBuildPropertyToFileExtension Condition="'$(MsBuildPropertyToFileExtension)' == '' AND '$(ProjectName)' != ''">.$(ProjectName).MsBuildPropertyToFile</MsBuildPropertyToFileExtension>
+    <MsBuildPropertyToFileExtension Condition="'$(MsBuildPropertyToFileExtension)' == '' AND '$(MSBuildProjectName)' != ''">.$(MSBuildProjectName).MsBuildPropertyFile</MsBuildPropertyToFileExtension>
+    <MsBuildCacheFileExtension Condition="'$(MsBuildCacheFileExtension)' == ''">.MsBuildSyntonyCacheFile</MsBuildCacheFileExtension>
+
+    <SyntonySharedSourcesDirectory Condition="'$(SyntonySharedSourcesDirectory)'=='' Or !Exists('$(SyntonySharedSourcesDirectory)')">$([System.Text.RegularExpressions.Regex]::Replace($(MSBuildThisFileDirectory),'\\$',''))</SyntonySharedSourcesDirectory> <!-- The shared sources (e.g. this file) directory of the solution. -->
+    
+    <_SyntonySharedBinariesDirectory>$([System.IO.Path]::Combine($(SyntonySharedSourcesDirectory), "..\$(SharedBinariesDirectoryName)"))</_SyntonySharedBinariesDirectory>
+    <SyntonySharedBinariesDirectory  Condition="'$(SyntonySharedBinariesDirectory)'=='' Or !Exists('$(SyntonySharedBinariesDirectory)')">$([System.IO.Path]::GetFullPath($(_SyntonySharedBinariesDirectory)))</SyntonySharedBinariesDirectory> <!-- The shared binaries (icons, keys, tools, packages) directory of the solution. -->
+    <SyntonySharedToolsDirectory Condition="'$(SyntonySharedToolsDirectory)'=='' Or !Exists('$(SyntonySharedToolsDirectory)')">$(SyntonySharedBinariesDirectory)\$(SharedToolsDirectoryName)</SyntonySharedToolsDirectory> <!-- The shared tools (e.g. NuGet.exe) directory of the solution. -->
+    
+    <_SourceDirectory>$([System.IO.Path]::Combine($(SyntonySharedSourcesDirectory), ".."))</_SourceDirectory>
+    <SourceDirectory>$([System.IO.Path]::GetFullPath($(_SourceDirectory)))</SourceDirectory>
+
+    <!-- could also be ..\..\..\ or ..\..\..\..\..\ and still another path if on another drive -->
+    <_BranchDirectory Condition="$(BranchDirectory) == ''">$(SyntonySharedSourcesDirectory)\..\..</_BranchDirectory>  <!-- that should be the corresponding BRANCH directory because this file is always stored in BRANCH\CommonProperties\SharedSources -->
+    <BranchDirectory Condition="$(BranchDirectory) == ''">$([System.IO.Path]::GetFullPath($(_BranchDirectory)))</BranchDirectory>
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">$(BranchDirectory)\</SolutionDir> <!-- that should be the corresponding BRANCH directory -->
+    
+    <SameDrive Condition="'$(SyntonyCommonDrive)'=='$(ProjectDrive)'">true</SameDrive>
+    <SameDrive Condition="'$(SyntonyCommonDrive)'!='$(ProjectDrive)'">false</SameDrive>
+    
+    <NetFxToolsDirectory Condition="'$(NetFxToolsDirectory)' == ''">C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.6 Tools</NetFxToolsDirectory> <!-- tools directory for sn.exe, gacutil.exe, ildasm.exe, ... -->
+    <IDEToolsDirectory>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE</IDEToolsDirectory> <!-- files like MsTest.exe, Blend.exe -->
+    <ExtensionTasksPath Condition="'$(ExtensionTasksPath)'==''">C:\Program Files\MSBuild\ExtensionPack\4.0\</ExtensionTasksPath> <!-- for MSBuild.ExtensionPack.tasks -->
+
+    <IsCodedUITest Condition="'$(IsCodedUITest)' == ''">false</IsCodedUITest> 
+    <TestProjectType Condition="'$(TestProjectType)' == ''">UnitTest</TestProjectType>
+
+    <!-- Message / log properties -->
+    <SyntonyMessageImportance Condition="'$(SyntonyMessageImportance)'==''">Normal</SyntonyMessageImportance> <!-- This parameter can have a value of high, normal or low. The default value is normal. -->
+    <SyntonyMessageImportance Condition="'$(DebugSyntonyBuild)'=='true'">High</SyntonyMessageImportance>
+    <SyntonySeparator Condition="'$(SyntonySeparator)'==''">$([System.String]::new('*', 160))</SyntonySeparator>
+    <SyntonyStartSeparator Condition="'$(SyntonyStartSeparator)'==''">$([System.String]::new('*', 160))</SyntonyStartSeparator>
+    <SyntonyStopSeparator Condition="'$(SyntonyStopSeparator)'==''">$([System.String]::new('╔', 160))</SyntonyStopSeparator>
+
+    <_CommonProgramFiles Condition=" '$(_CommonProgramFiles)' == '' ">$([System.Environment]::GetEnvironmentVariable('CommonProgramFiles(x86)'))</_CommonProgramFiles>
+    <_CommonProgramFiles Condition=" '$(_CommonProgramFiles)' == '' ">$(CommonProgramFiles)</_CommonProgramFiles>
+    <TEMP Condition=" '$(TEMP)' == '' ">$([System.Environment]::GetEnvironmentVariable('TEMP'))</TEMP>
+
+    <_OutputFile Condition=" '$(_OutputFile)' == '' ">$(TEMP)\$(ProjectName).Output.txt</_OutputFile>
+    <GenerateResourceNeverLockTypeAssemblies>true</GenerateResourceNeverLockTypeAssemblies>
+  
+    <ExecuteSyntonyPostBuild Condition="'$(ExecutePostBuild)'=='' ">true</ExecuteSyntonyPostBuild>
+  </PropertyGroup>
+
+  <!--
+  ====================================================================================================================================================================================
+                      CodeTaskAssembly for UsingTask tasks
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
+    <CodeTaskAssembly Condition="'$(MSBuildAssemblyVersion)' == ''">$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll</CodeTaskAssembly>
+    <!-- In VS2013, the assembly contains the VS version. -->
+    <!-- <CodeTaskAssembly Condition="'$(MSBuildAssemblyVersion)' == '12.0'">$(MSBuildToolsPath)\Microsoft.Build.Tasks.v12.0.dll</CodeTaskAssembly> -->
+    <!-- In VS2015+, the assembly was renamed, hopefully this will be the last condition! -->
+    <!-- <CodeTaskAssembly Condition="'$(MSBuildAssemblyVersion)' != '' and '$(MSBuildAssemblyVersion)' &gt;= '14.0'">$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll</CodeTaskAssembly> -->
+  </PropertyGroup>
+
+  <!--
+  ====================================================================================================================================================================================
+                      Properties for compiling a SYNTONY project
+  ====================================================================================================================================================================================	-->
+  <PropertyGroup Condition="'$(Syntony)' == 'true'">
+    <SymbolDB>$(BuildDir)\$(ProjectName).pdb</SymbolDB>
+    <CompanyAssemblyInfo>$(SyntonySharedSourcesDirectory)\$(Company).AssemblyInfo.cs</CompanyAssemblyInfo>
+    <!-- The location of the company AssemblyInfo file. -->
+    <CompanyFrameworkAssemblyInfo>$(SyntonySharedSourcesDirectory)\$(Company).Framework.AssemblyInfo.cs</CompanyFrameworkAssemblyInfo>
+    <!-- The location of the company Framework.AssemblyInfo file. This is the AssemblyInfo for the company library. -->
+    <ProjectAssemblyInfo>$(MSBuildProjectDirectory)\Properties\$(Company).$(MSBuildProjectName).AssemblyInfo.cs</ProjectAssemblyInfo>
+    <!-- The location of the project AssemblyInfo file. -->
+    <CompanyProjectVersionAssemblyInfo>$(MSBuildProjectDirectory)\Properties\$(Company).$(MSBuildProjectName).Version.AssemblyInfo.cs</CompanyProjectVersionAssemblyInfo>
+    <!-- The location of the company project version AssemblyInfo file. -->
+    <AssemblyInfo>$(MSBuildProjectDirectory)\Properties\AssemblyInfo.cs</AssemblyInfo>
+    <!-- The location of the default AssemblyInfo file. -->
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == ''">Properties\SyntonyKeyPair.pfx</AssemblyOriginatorKeyFile>
+    <ApplicationIcon Condition="'$(ApplicationIcon)' == ''">Properties\Syntony.Framework.ico</ApplicationIcon>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(Syntony)' == 'true'">
+    <None Include="Properties\SyntonyKeyPair.pfx" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Syntony)' == 'true'">
+    <Content Include="$(ApplicationIcon)" />
+  </ItemGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' AND '$(Syntony)' == 'true'">
+    <Prefer32Bit>false</Prefer32Bit>
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>false</Optimize>
+    <DefineConstants Condition="'$(DefineConstants)' == ''">TRACE;DEBUG;CONTRACTS_FULL;UNIT_TESTS</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <DocumentationFile/>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeContractsAssemblyMode>1</CodeContractsAssemblyMode>
+    <CodeContractsEnableRuntimeChecking>True</CodeContractsEnableRuntimeChecking>
+    <CodeContractsRuntimeOnlyPublicSurface>False</CodeContractsRuntimeOnlyPublicSurface>
+    <CodeContractsRuntimeThrowOnFailure>True</CodeContractsRuntimeThrowOnFailure>
+    <CodeContractsRuntimeCallSiteRequires>True</CodeContractsRuntimeCallSiteRequires>
+    <CodeContractsRuntimeSkipQuantifiers>False</CodeContractsRuntimeSkipQuantifiers>
+    <CodeContractsRunCodeAnalysis>False</CodeContractsRunCodeAnalysis>
+    <CodeContractsNonNullObligations>False</CodeContractsNonNullObligations>
+    <CodeContractsBoundsObligations>False</CodeContractsBoundsObligations>
+    <CodeContractsArithmeticObligations>False</CodeContractsArithmeticObligations>
+    <CodeContractsEnumObligations>False</CodeContractsEnumObligations>
+    <CodeContractsRedundantAssumptions>False</CodeContractsRedundantAssumptions>
+    <CodeContractsMissingPublicRequiresAsWarnings>False</CodeContractsMissingPublicRequiresAsWarnings>
+    <CodeContractsInferRequires>False</CodeContractsInferRequires>
+    <CodeContractsInferEnsures>False</CodeContractsInferEnsures>
+    <CodeContractsInferObjectInvariants>False</CodeContractsInferObjectInvariants>
+    <CodeContractsSuggestAssumptions>False</CodeContractsSuggestAssumptions>
+    <CodeContractsSuggestRequires>False</CodeContractsSuggestRequires>
+    <CodeContractsSuggestObjectInvariants>False</CodeContractsSuggestObjectInvariants>
+    <CodeContractsRunInBackground>False</CodeContractsRunInBackground>
+    <CodeContractsShowSquigglies>False</CodeContractsShowSquigglies>
+    <CodeContractsUseBaseLine>False</CodeContractsUseBaseLine>
+    <CodeContractsEmitXMLDocs>False</CodeContractsEmitXMLDocs>
+    <CodeContractsCustomRewriterAssembly />
+    <CodeContractsCustomRewriterClass />
+    <CodeContractsLibPaths />
+    <CodeContractsExtraRewriteOptions />
+    <CodeContractsExtraAnalysisOptions />
+    <CodeContractsSQLServerOption />
+    <CodeContractsBaseLineFile />
+    <CodeContractsCacheAnalysisResults>False</CodeContractsCacheAnalysisResults>
+    <CodeContractsFailBuildOnWarnings>False</CodeContractsFailBuildOnWarnings>
+    <CodeContractsRuntimeCheckingLevel>Full</CodeContractsRuntimeCheckingLevel>
+    <CodeContractsReferenceAssembly>Build</CodeContractsReferenceAssembly>
+    <CodeContractsAnalysisWarningLevel>0</CodeContractsAnalysisWarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' AND '$(Syntony)' == 'true'">
+    <Prefer32Bit>false</Prefer32Bit>
+    <DebugType>pdbonly</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>true</Optimize>
+    <DefineConstants Condition="'$(DefineConstants)' == '' AND '$(OutputType)' == 'Library'">TRACE;UNIT_TESTS;</DefineConstants>
+    <!-- BUILD_PACKAGE; PUBLISH_PACKAGE -->
+    <DefineConstants Condition="'$(DefineConstants)' == ''">TRACE;UNIT_TESTS</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <DocumentationFile>..\$(DocsDirectoryName)\$(AssemblyName).xml</DocumentationFile>
+    <RunCodeAnalysis>true</RunCodeAnalysis>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeContractsAssemblyMode>1</CodeContractsAssemblyMode>
+    <CodeContractsEnableRuntimeChecking>False</CodeContractsEnableRuntimeChecking>
+    <CodeContractsRuntimeOnlyPublicSurface>False</CodeContractsRuntimeOnlyPublicSurface>
+    <CodeContractsRuntimeThrowOnFailure>False</CodeContractsRuntimeThrowOnFailure>
+    <CodeContractsRuntimeCallSiteRequires>False</CodeContractsRuntimeCallSiteRequires>
+    <CodeContractsRuntimeSkipQuantifiers>False</CodeContractsRuntimeSkipQuantifiers>
+    <CodeContractsRunCodeAnalysis>False</CodeContractsRunCodeAnalysis>
+    <CodeContractsNonNullObligations>False</CodeContractsNonNullObligations>
+    <CodeContractsBoundsObligations>False</CodeContractsBoundsObligations>
+    <CodeContractsArithmeticObligations>False</CodeContractsArithmeticObligations>
+    <CodeContractsEnumObligations>False</CodeContractsEnumObligations>
+    <CodeContractsRedundantAssumptions>False</CodeContractsRedundantAssumptions>
+    <CodeContractsMissingPublicRequiresAsWarnings>False</CodeContractsMissingPublicRequiresAsWarnings>
+    <CodeContractsInferRequires>False</CodeContractsInferRequires>
+    <CodeContractsInferEnsures>False</CodeContractsInferEnsures>
+    <CodeContractsInferObjectInvariants>False</CodeContractsInferObjectInvariants>
+    <CodeContractsSuggestAssumptions>False</CodeContractsSuggestAssumptions>
+    <CodeContractsSuggestRequires>False</CodeContractsSuggestRequires>
+    <CodeContractsSuggestObjectInvariants>False</CodeContractsSuggestObjectInvariants>
+    <CodeContractsRunInBackground>False</CodeContractsRunInBackground>
+    <CodeContractsShowSquigglies>False</CodeContractsShowSquigglies>
+    <CodeContractsUseBaseLine>False</CodeContractsUseBaseLine>
+    <CodeContractsEmitXMLDocs>True</CodeContractsEmitXMLDocs>
+    <CodeContractsCustomRewriterAssembly />
+    <CodeContractsCustomRewriterClass />
+    <CodeContractsLibPaths />
+    <CodeContractsExtraRewriteOptions />
+    <CodeContractsExtraAnalysisOptions />
+    <CodeContractsSQLServerOption />
+    <CodeContractsBaseLineFile />
+    <CodeContractsCacheAnalysisResults>False</CodeContractsCacheAnalysisResults>
+    <CodeContractsFailBuildOnWarnings>False</CodeContractsFailBuildOnWarnings>
+    <CodeContractsRuntimeCheckingLevel>Full</CodeContractsRuntimeCheckingLevel>
+    <CodeContractsReferenceAssembly>DoNotBuild</CodeContractsReferenceAssembly>
+    <CodeContractsAnalysisWarningLevel>0</CodeContractsAnalysisWarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'CodeAnalysis|AnyCPU' AND '$(Syntony)' == 'true'">
+    <Prefer32Bit>false</Prefer32Bit>
+    <DebugType>pdbonly</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>true</Optimize>
+    <DefineConstants Condition="'$(DefineConstants)' == ''">TRACE;DEBUG;CONTRACTS_FULL;SYNTONY_CODE_ANALYSIS;UNIT_TESTS</DefineConstants>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile/>
+    <RunCodeAnalysis>true</RunCodeAnalysis>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeContractsAssemblyMode>1</CodeContractsAssemblyMode>
+    <CodeContractsEnableRuntimeChecking>True</CodeContractsEnableRuntimeChecking>
+    <CodeContractsRuntimeOnlyPublicSurface>False</CodeContractsRuntimeOnlyPublicSurface>
+    <CodeContractsRuntimeThrowOnFailure>True</CodeContractsRuntimeThrowOnFailure>
+    <CodeContractsRuntimeCallSiteRequires>True</CodeContractsRuntimeCallSiteRequires>
+    <CodeContractsRuntimeSkipQuantifiers>False</CodeContractsRuntimeSkipQuantifiers>
+    <CodeContractsRunCodeAnalysis>True</CodeContractsRunCodeAnalysis>
+    <CodeContractsNonNullObligations>True</CodeContractsNonNullObligations>
+    <CodeContractsBoundsObligations>True</CodeContractsBoundsObligations>
+    <CodeContractsArithmeticObligations>True</CodeContractsArithmeticObligations>
+    <CodeContractsEnumObligations>True</CodeContractsEnumObligations>
+    <CodeContractsRedundantAssumptions>True</CodeContractsRedundantAssumptions>
+    <CodeContractsMissingPublicRequiresAsWarnings>True</CodeContractsMissingPublicRequiresAsWarnings>
+    <CodeContractsInferRequires>True</CodeContractsInferRequires>
+    <CodeContractsInferEnsures>True</CodeContractsInferEnsures>
+    <CodeContractsInferObjectInvariants>True</CodeContractsInferObjectInvariants>
+    <CodeContractsSuggestAssumptions>True</CodeContractsSuggestAssumptions>
+    <CodeContractsSuggestRequires>True</CodeContractsSuggestRequires>
+    <CodeContractsSuggestObjectInvariants>True</CodeContractsSuggestObjectInvariants>
+    <CodeContractsRunInBackground>True</CodeContractsRunInBackground>
+    <CodeContractsShowSquigglies>True</CodeContractsShowSquigglies>
+    <CodeContractsUseBaseLine>False</CodeContractsUseBaseLine>
+    <CodeContractsEmitXMLDocs>False</CodeContractsEmitXMLDocs>
+    <CodeContractsCustomRewriterAssembly />
+    <CodeContractsCustomRewriterClass />
+    <CodeContractsLibPaths />
+    <CodeContractsExtraRewriteOptions />
+    <CodeContractsExtraAnalysisOptions />
+    <CodeContractsSQLServerOption>Office\OFFICE</CodeContractsSQLServerOption>
+    <CodeContractsBaseLineFile />
+    <CodeContractsCacheAnalysisResults>True</CodeContractsCacheAnalysisResults>
+    <CodeContractsFailBuildOnWarnings>True</CodeContractsFailBuildOnWarnings>
+    <CodeContractsRuntimeCheckingLevel>Full</CodeContractsRuntimeCheckingLevel>
+    <CodeContractsReferenceAssembly>Build</CodeContractsReferenceAssembly>
+    <CodeContractsAnalysisWarningLevel>3</CodeContractsAnalysisWarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' AND '$(Syntony)' == 'true' AND '$(SyntonyTestEnvironment)' == 'true'">
+    <DocumentationFile/>
+    <CodeAnalysisRuleSet>$(SyntonySharedSourcesDirectory)\UnitTestsRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' AND '$(Syntony)' == 'true' AND '$(SyntonyTestEnvironment)' == 'true'">
+    <DocumentationFile/>
+    <CodeAnalysisRuleSet>$(SyntonySharedSourcesDirectory)\UnitTestsRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'CodeAnalysis|AnyCPU' AND '$(Syntony)' == 'true' AND '$(SyntonyTestEnvironment)' == 'true'">
+    <DocumentationFile/>
+    <CodeAnalysisRuleSet>$(SyntonySharedSourcesDirectory)\UnitTestsRules.ruleset</CodeAnalysisRuleSet>
+    <!-- NO CodeContracts for TESTS: too much errors and warnings -->
+    <CodeContractsAssemblyMode>1</CodeContractsAssemblyMode>
+    <CodeContractsEnableRuntimeChecking>False</CodeContractsEnableRuntimeChecking>
+    <CodeContractsRuntimeOnlyPublicSurface>False</CodeContractsRuntimeOnlyPublicSurface>
+    <CodeContractsRuntimeThrowOnFailure>False</CodeContractsRuntimeThrowOnFailure>
+    <CodeContractsRuntimeCallSiteRequires>False</CodeContractsRuntimeCallSiteRequires>
+    <CodeContractsRuntimeSkipQuantifiers>False</CodeContractsRuntimeSkipQuantifiers>
+    <CodeContractsRunCodeAnalysis>False</CodeContractsRunCodeAnalysis>
+    <CodeContractsNonNullObligations>False</CodeContractsNonNullObligations>
+    <CodeContractsBoundsObligations>False</CodeContractsBoundsObligations>
+    <CodeContractsArithmeticObligations>False</CodeContractsArithmeticObligations>
+    <CodeContractsEnumObligations>False</CodeContractsEnumObligations>
+    <CodeContractsRedundantAssumptions>False</CodeContractsRedundantAssumptions>
+    <CodeContractsMissingPublicRequiresAsWarnings>False</CodeContractsMissingPublicRequiresAsWarnings>
+    <CodeContractsInferRequires>False</CodeContractsInferRequires>
+    <CodeContractsInferEnsures>False</CodeContractsInferEnsures>
+    <CodeContractsInferObjectInvariants>False</CodeContractsInferObjectInvariants>
+    <CodeContractsSuggestAssumptions>False</CodeContractsSuggestAssumptions>
+    <CodeContractsSuggestRequires>False</CodeContractsSuggestRequires>
+    <CodeContractsSuggestObjectInvariants>False</CodeContractsSuggestObjectInvariants>
+    <CodeContractsRunInBackground>False</CodeContractsRunInBackground>
+    <CodeContractsShowSquigglies>False</CodeContractsShowSquigglies>
+    <CodeContractsUseBaseLine>False</CodeContractsUseBaseLine>
+    <CodeContractsEmitXMLDocs>True</CodeContractsEmitXMLDocs>
+    <CodeContractsCustomRewriterAssembly />
+    <CodeContractsCustomRewriterClass />
+    <CodeContractsLibPaths />
+    <CodeContractsExtraRewriteOptions />
+    <CodeContractsExtraAnalysisOptions />
+    <CodeContractsSQLServerOption />
+    <CodeContractsBaseLineFile />
+    <CodeContractsCacheAnalysisResults>False</CodeContractsCacheAnalysisResults>
+    <CodeContractsFailBuildOnWarnings>False</CodeContractsFailBuildOnWarnings>
+    <CodeContractsRuntimeCheckingLevel>Full</CodeContractsRuntimeCheckingLevel>
+    <CodeContractsReferenceAssembly>Build</CodeContractsReferenceAssembly>
+    <CodeContractsAnalysisWarningLevel>0</CodeContractsAnalysisWarningLevel>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ImportProjectsByWildcardAfterSyntonyCommonProps Condition="'$(ImportProjectsByWildcardAfterSyntonyCommonProps)' == ''">true</ImportProjectsByWildcardAfterSyntonyCommonProps>
+  </PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)$(Company)*.props" Condition="'$(SyntonySharedSourcesDirectory)\' != '$(MSBuildThisFileDirectory)' AND '$(CompanyPropsHasBeenImported)' != 'true'"/>
+
+  <!-- This is used to determine whether Syntony.Common.targets needs to import Syntony.Common.props itself, or whether it has been imported previously, e.g. by the project itself. -->
+  <PropertyGroup>
+    <CompanyPropsHasBeenImported>true</CompanyPropsHasBeenImported>
+  </PropertyGroup>
+
+</Project>

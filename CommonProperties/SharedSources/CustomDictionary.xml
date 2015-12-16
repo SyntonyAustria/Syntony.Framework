@@ -1,0 +1,830 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+http://blogs.msdn.com/fxcop/archive/2007/08/20/new-for-visual-studio-2008-custom-dictionaries.aspx
+https://msdn.microsoft.com/en-us/library/bb514188.aspx
+
+New for Visual Studio 2008 - Custom Dictionaries
+================================================
+Once you turn on the new spelling rules that we've added to Visual Studio 2008, you will want to start to customize the 
+words that it fires on; this is where the new custom dictionary support comes in. A custom dictionary in its basic 
+form, similar to the concept in Microsoft Word, allows you to silence the spell checker over the words that are not in 
+the standard dictionary, such as company and product names.
+
+Adding a custom dictionary to a project
+
+To add a custom dictionary to a C# and Visual Basic project is simple:
+
+In Solution Explorer, right-click on the project and choose Add -> New Item...
+Under Templates, select XML File, enter a name for the dictionary, such as CodeAnalysisDictionary.xml and click Add
+In Solution Explorer, right-click on the XML file and choose Properties
+In the Properties tool window, under Build Action choose CodeAnalysisDictionary
+In Solution Explorer, double-click on the newly created dictionary to open it
+In the XML editor, paste the following, replacing [productname] and [companyname] with your team's equivalents:
+
+<?xml version="1.0" encoding="utf-8" ?>
+<Dictionary>
+<Words>
+<Recognized>
+<Word>[productname]</Word>
+<Word>[companyname]</Word>
+</Recognized>
+</Words>
+</Dictionary>
+
+You are now ready to start entering your own custom words. Simply add a new <Word> element for each word in your 
+project that does not exist in the dictionary. Each word is case-insensitive, so any casing of the word will be 
+recognized. Code Analysis will automatically pick up the custom dictionary the next time it is run.
+
+
+Sharing a custom dictionary between projects
+============================================
+Once you have worked through the above steps, the following will be added automatically to your MSBuild-based project 
+(ie csproj or vbproj):
+
+<ItemGroup>
+<CodeAnalysisDictionary Include="CodeAnalysisDictionary.xml" />
+</ItemGroup>
+
+This means that similar to other Code Analysis properties and items, this information can be placed a common targets 
+file to be shared by multiple projects.
+
+If you do not want to have all projects share a common MSBuild targets file, you can instead do the following:
+
+Place the custom dictionary file created above in a shared location, such as alongside the solution
+In Solution Explorer, right-click on a project and choose Add Item...
+Browse to and click the custom dictionary to select it
+On the Add button, click the down arrow to drop a menu and choose Add As Link
+In Solution Explorer, right-click on the custom dictionary and choose Properties
+In the Properties tool window, under Build Action choose CodeAnalysisDictionary
+Repeat steps 2 - 6 for each project you want to share the custom dictionary
+Advanced usage of a custom dictionary
+
+I have shown you above basic usage of the new dictionary support the Code Analysis team has added to Visual Studio 
+2008. Those that have previously used custom dictionaries with FxCop, will realize that there are more things that you 
+can add to these files that will customize other naming-based rules. However, for now I will leave you with the above 
+and talk about advanced usage of a custom dictionary in future posts.
+ -->
+<Dictionary>
+  <Words>
+    
+  <!-- 
+      This is a list of case-insensitive words that exist in the dictionary
+      but you do not want to be recognized by IdentifiersShouldBeSpelledCorrectly.
+      Do not add deprecated terms to this list, instead add these to the <Deprecated> section below.
+    
+    To exclude a term from the list of terms that code analysis identifies as correctly spelled, add the term to exclude as the inner text of a Dictionary/Words/Unrecognized/Word element. 
+    Terms in Dictionary/Words/Unrecognized/Word elements are not case-sensitive.
+    -->
+    <Unrecognized>
+      <Word>cb</Word>
+      <Word>ch</Word>
+      <Word>gt</Word>
+      <Word>idx</Word>
+      <Word>img</Word>
+      <Word>lg</Word>
+      <Word>num</Word>
+      <Word>ps</Word>
+      <Word>pw</Word>
+      <Word>scp</Word>
+      <Word>si</Word>
+      <Word>sig</Word>
+      <Word>tk</Word>
+      <Word>tw</Word>
+      <Word>val</Word>
+    </Unrecognized>
+    
+  <!--
+      This is a list of case-insensitive words that do not exist in the dictionary
+      but you still want to be considered as recognized by 
+      IdentifiersShouldBeSpelledCorrectly. 
+    
+    Do not add compound words (e.g. 'FileName') to this list as this will cause CompoundWordsShouldBeBeCasedCorrectly to fire on 
+      usages of the compound word stating that they should be changed to their discrete equivalent (for example 'FileName' -> 'Filename').
+    
+    To include a term in the list of terms that code analysis identifies as correctly spelled, add the term as the inner text of a Dictionary/Words/Recognized/Word element. 
+    Terms in Dictionary/Words/Recognized/Word elements are not case-sensitive.
+    -->
+    <Recognized>
+      <Word>&amp;amp</Word>
+      <Word>&amp;gt</Word>
+      <Word>&amp;lt</Word>
+      <Word>accessor</Word>
+      <Word>accessors</Word>
+      <Word>acos</Word>
+      <Word>Acosh</Word>
+      <Word>admin</Word>
+      <Word>aes</Word>
+      <Word>Allocator</Word>
+      <Word>Appender</Word>
+      <Word>Appenders</Word>
+      <Word>Appl</Word>
+      <Word>aptca</Word>
+      <Word>arg</Word>
+      <Word>Argb</Word>
+      <Word>args</Word>
+      <Word>asin</Word>
+      <Word>Asinh</Word>
+      <Word>asm</Word>
+      <Word>aspx</Word>
+      <Word>async</Word>
+      <Word>atan</Word>
+      <Word>Atanh</Word>
+      <Word>Authz</Word>
+      <Word>azeri</Word>
+      <Word>baml</Word>
+      <Word>basename</Word>
+      <Word>bcl</Word>
+      <Word>Belarusian</Word>
+      <Word>bidi</Word>
+      <Word>bindable</Word>
+      <Word>bitrate</Word>
+      <Word>blittable</Word>
+      <Word>blog</Word>
+      <Word>Bokmal</Word>
+      <Word>bool</Word>
+      <Word>boolean</Word>
+      <Word>bootstrapper</Word>
+      <Word>bootstrappers</Word>
+      <Word>Bopomofo</Word>
+      <Word>browsable</Word>
+      <Word>Brun</Word>
+      <Word>bugfixes</Word>
+      <Word>cacheability</Word>
+      <Word>callee</Word>
+      <Word>callees</Word>
+      <Word>canonicalize</Word>
+      <Word>catched</Word>
+      <Word>Cbt</Word>
+      <Word>cdecl</Word>
+      <Word>Cdecl</Word>
+      <Word>cdo</Word>
+      <Word>chtml</Word>
+      <Word>cim</Word>
+      <Word>clearable</Word>
+      <Word>cloneable</Word>
+      <Word>clr</Word>
+      <Word>clr's</Word>
+      <Word>cls</Word>
+      <Word>clsid</Word>
+      <Word>clsids</Word>
+      <Word>cmd</Word>
+      <Word>cmdlet</Word>
+      <Word>cmdlets</Word>
+      <Word>cng</Word>
+      <Word>codelinebase</Word>
+      <Word>comparand</Word>
+      <Word>Composited</Word>
+      <Word>concat</Word>
+      <Word>config</Word>
+      <Word>Configurator</Word>
+      <Word>contravariant</Word>
+      <Word>cookieless</Word>
+      <Word>cos</Word>
+      <Word>Cos</Word>
+      <Word>Cosh</Word>
+      <Word>cref</Word>
+      <Word>crm</Word>
+      <Word>cs</Word>
+      <Word>css</Word>
+      <Word>cyclomatic</Word>
+      <Word>czech</Word>
+      <Word>Darussalam</Word>
+      <Word>dd</Word>
+      <Word>de</Word>
+      <Word>debuggable</Word>
+      <Word>Debuggable</Word>
+      <Word>decommission</Word>
+      <Word>Decommit</Word>
+      <Word>Decryptor</Word>
+      <Word>deformatter</Word>
+      <Word>delegator</Word>
+      <Word>dequeue</Word>
+      <Word>dereferenced</Word>
+      <Word>des</Word>
+      <Word>deserialization</Word>
+      <Word>deserialize</Word>
+      <Word>Deserialize</Word>
+      <Word>deserialized</Word>
+      <Word>deserializing</Word>
+      <Word>destructors</Word>
+      <Word>dhcp</Word>
+      <Word>diffie</Word>
+      <Word>discardable</Word>
+      <Word>Divehi</Word>
+      <Word>Dlg</Word>
+      <Word>dll</Word>
+      <Word>Dll's</Word>
+      <Word>dns</Word>
+      <Word>documentable</Word>
+      <Word>dont</Word>
+      <Word>dsa</Word>
+      <Word>dsig</Word>
+      <Word>dtd</Word>
+      <Word>dtds</Word>
+      <Word>em</Word>
+      <Word>email</Word>
+      <Word>emails</Word>
+      <Word>emf</Word>
+      <Word>encodable</Word>
+      <Word>Encryptor</Word>
+      <Word>endian</Word>
+      <Word>Endian</Word>
+      <Word>enqueue</Word>
+      <Word>enum</Word>
+      <Word>Enum</Word>
+      <Word>enums</Word>
+      <Word>equatable</Word>
+      <Word>Estados</Word>
+      <Word>Europa</Word>
+      <Word>eventing</Word>
+      <Word>exe</Word>
+      <Word>expando</Word>
+      <Word>Extractor</Word>
+      <Word>Faeroese</Word>
+      <Word>fallback</Word>
+      <Word>Farsi</Word>
+      <Word>Feigenbaum</Word>
+      <Word>fff</Word>
+      <Word>finalizer</Word>
+      <Word>Finalizer</Word>
+      <Word>finalizers</Word>
+      <Word>fixup</Word>
+      <Word>fixups</Word>
+      <Word>foreach</Word>
+      <Word>formatable</Word>
+      <Word>formattable</Word>
+      <Word>func</Word>
+      <Word>fxcop</Word>
+      <Word>gac</Word>
+      <Word>Galician</Word>
+      <Word>Gallio</Word>
+      <Word>goto</Word>
+      <Word>gt</Word>
+      <Word>guid</Word>
+      <Word>Guid</Word>
+      <Word>guids</Word>
+      <Word>hahnl</Word>
+      <Word>Hahnl</Word>
+      <Word>hashtable</Word>
+      <Word>hashtables</Word>
+      <Word>hashtable's</Word>
+      <Word>hdc</Word>
+      <Word>hijri</Word>
+      <Word>hmac</Word>
+      <Word>Hongkong</Word>
+      <Word>href</Word>
+      <Word>Html</Word>
+      <Word>http</Word>
+      <Word>ico</Word>
+      <Word>Idc</Word>
+      <Word>idn</Word>
+      <Word>iis</Word>
+      <Word>il</Word>
+      <Word>ime</Word>
+      <Word>Impl</Word>
+      <Word>Ing</Word>
+      <Word>Ingles</Word>
+      <Word>Init</Word>
+      <Word>initializer</Word>
+      <Word>initializers</Word>
+      <Word>inline</Word>
+      <Word>inlined</Word>
+      <Word>inlining</Word>
+      <Word>int</Word>
+      <Word>Int</Word>
+      <Word>interfix</Word>
+      <Word>Interfix</Word>
+      <Word>internet</Word>
+      <Word>interop</Word>
+      <Word>Interop</Word>
+      <Word>interoperate</Word>
+      <Word>intrinsics</Word>
+      <Word>ipc</Word>
+      <Word>ipv</Word>
+      <Word>iterator</Word>
+      <Word>iterators</Word>
+      <Word>ja</Word>
+      <Word>JetBrains</Word>
+      <Word>jit</Word>
+      <Word>json</Word>
+      <Word>Kashmiri</Word>
+      <Word>Kazak</Word>
+      <Word>Konkani</Word>
+      <Word>ksc</Word>
+      <Word>Kyrgyz</Word>
+      <Word>languagefull</Word>
+      <Word>langword</Word>
+      <Word>lcid</Word>
+      <Word>Lcid</Word>
+      <Word>lcids</Word>
+      <Word>ldap</Word>
+      <Word>lic</Word>
+      <Word>linq</Word>
+      <Word>localhost</Word>
+      <Word>localizable</Word>
+      <Word>Log</Word>
+      <Word>Lokad</Word>
+      <Word>loopback</Word>
+      <Word>loopbacks</Word>
+      <Word>Lossy</Word>
+      <Word>lpsz</Word>
+      <Word>lt</Word>
+      <Word>Ltr</Word>
+      <Word>Macau</Word>
+      <Word>Manipuri</Word>
+      <Word>mapper</Word>
+      <Word>mappers</Word>
+      <Word>marshalable</Word>
+      <Word>marshaler</Word>
+      <Word>Marshaler</Word>
+      <Word>marshalers</Word>
+      <Word>Mascheroni</Word>
+      <Word>Maxtime</Word>
+      <Word>mdi</Word>
+      <Word>mergable</Word>
+      <Word>metadata</Word>
+      <Word>MethodParams</Word>
+      <Word>misc</Word>
+      <Word>miscased</Word>
+      <Word>monitorable</Word>
+      <Word>mscoree</Word>
+      <Word>mscorlib</Word>
+      <Word>msh</Word>
+      <Word>mui</Word>
+      <Word>multifile</Word>
+      <Word>multiline</Word>
+      <Word>multipanel</Word>
+      <Word>multipanels</Word>
+      <Word>multithreaded</Word>
+      <Word>Multithreading</Word>
+      <Word>multiview</Word>
+      <Word>multiviews</Word>
+      <Word>mutator</Word>
+      <Word>mutators</Word>
+      <Word>mutex</Word>
+      <Word>mutexes</Word>
+      <Word>Mvc</Word>
+      <Word>namespace</Word>
+      <Word>namespaces</Word>
+      <Word>ndpsec</Word>
+      <Word>nls</Word>
+      <Word>nonexecutable</Word>
+      <Word>nonlocalizable</Word>
+      <Word>nop</Word>
+      <Word>ntfs</Word>
+      <Word>ntlm</Word>
+      <Word>Ntp</Word>
+      <Word>nullable</Word>
+      <Word>numerics</Word>
+      <Word>nunit</Word>
+      <Word>Nynorsk</Word>
+      <Word>obj</Word>
+      <Word>Obm</Word>
+      <Word>odbc</Word>
+      <Word>ok</Word>
+      <Word>oks</Word>
+      <Word>overridable</Word>
+      <Word>pageable</Word>
+      <Word>para</Word>
+      <Word>param</Word>
+      <Word>Param</Word>
+      <Word>parameterless</Word>
+      <Word>partitioner</Word>
+      <Word>partitioners</Word>
+      <Word>pdb</Word>
+      <Word>Pepi</Word>
+      <Word>persistable</Word>
+      <Word>persister</Word>
+      <Word>phonebook</Word>
+      <Word>plaintext</Word>
+      <Word>playlist</Word>
+      <Word>Plugin</Word>
+      <Word>Plugins</Word>
+      <Word>Postcondition</Word>
+      <Word>pragma</Word>
+      <Word>prc</Word>
+      <Word>prcp</Word>
+      <Word>pre</Word>
+      <Word>prepend</Word>
+      <Word>Priviledged</Word>
+      <Word>Proc</Word>
+      <Word>prog</Word>
+      <Word>ptr</Word>
+      <Word>Ptr</Word>
+      <Word>queryable</Word>
+      <Word>ras</Word>
+      <Word>readonly</Word>
+      <Word>rect</Word>
+      <Word>rects</Word>
+      <Word>recurse</Word>
+      <Word>refactor</Word>
+      <Word>reg</Word>
+      <Word>regex</Word>
+      <Word>regionfull</Word>
+      <Word>remoted</Word>
+      <Word>remoting</Word>
+      <Word>Renderer</Word>
+      <Word>Renderers</Word>
+      <Word>representable</Word>
+      <Word>res</Word>
+      <Word>ReSharper</Word>
+      <Word>resolver</Word>
+      <Word>resolvers</Word>
+      <Word>rethrow</Word>
+      <Word>rethrows</Word>
+      <Word>Rgb</Word>
+      <Word>rijndael</Word>
+      <Word>rpc</Word>
+      <Word>rsa</Word>
+      <Word>rss</Word>
+      <Word>rtc</Word>
+      <Word>Rtl</Word>
+      <Word>runspace</Word>
+      <Word>rva</Word>
+      <Word>saml</Word>
+      <Word>satelliteassemblies</Word>
+      <Word>saveable</Word>
+      <Word>scripttag</Word>
+      <Word>sddl</Word>
+      <Word>sdl</Word>
+      <Word>searchspace</Word>
+      <Word>searchspaces</Word>
+      <Word>seekable</Word>
+      <Word>seq</Word>
+      <Word>serializable</Word>
+      <Word>serializeable</Word>
+      <Word>serializer</Word>
+      <Word>serializers</Word>
+      <Word>Sha</Word>
+      <Word>silverlight</Word>
+      <Word>Silverlight</Word>
+      <Word>Sin</Word>
+      <Word>Sinh</Word>
+      <Word>sizeof</Word>
+      <Word>smtp</Word>
+      <Word>sn</Word>
+      <Word>sortable</Word>
+      <Word>sp</Word>
+      <Word>specifier</Word>
+      <Word>specifiers</Word>
+      <Word>spline</Word>
+      <Word>sql</Word>
+      <Word>Sqrt</Word>
+      <Word>Src</Word>
+      <Word>ss</Word>
+      <Word>ssl</Word>
+      <Word>sta</Word>
+      <Word>Stacktrace</Word>
+      <Word>stickies</Word>
+      <Word>str</Word>
+      <Word>struct</Word>
+      <Word>structs</Word>
+      <Word>stylesheet</Word>
+      <Word>subaddress</Word>
+      <Word>subaddresses</Word>
+      <Word>subclass</Word>
+      <Word>subclasses</Word>
+      <Word>subdirectories</Word>
+      <Word>subdirectory</Word>
+      <Word>subexpression</Word>
+      <Word>subexpressions</Word>
+      <Word>subitem</Word>
+      <Word>subitems</Word>
+      <Word>subkey</Word>
+      <Word>subkeys</Word>
+      <Word>sublanguage</Word>
+      <Word>submenu</Word>
+      <Word>submenus</Word>
+      <Word>subpath</Word>
+      <Word>subpaths</Word>
+      <Word>subsegment</Word>
+      <Word>subsegments</Word>
+      <Word>subtree</Word>
+      <Word>subtrees</Word>
+      <Word>Syntony</Word>
+      <Word>Syriac</Word>
+      <Word>Tan</Word>
+      <Word>Tanh</Word>
+      <Word>tcp</Word>
+      <Word>teardown</Word>
+      <Word>templated</Word>
+      <Word>thunk</Word>
+      <Word>thunks</Word>
+      <Word>tlb</Word>
+      <Word>Tp</Word>
+      <Word>trinary</Word>
+      <Word>tuple</Word>
+      <Word>tuples</Word>
+      <Word>txt</Word>
+      <Word>typeof</Word>
+      <Word>tzm</Word>
+      <Word>Uae</Word>
+      <Word>udp</Word>
+      <Word>udt</Word>
+      <Word>unbox</Word>
+      <Word>unboxing</Word>
+      <Word>unc</Word>
+      <Word>uncategorize</Word>
+      <Word>uncheck</Word>
+      <Word>unchecked</Word>
+      <Word>unchecking</Word>
+      <Word>unescape</Word>
+      <Word>unhandled</Word>
+      <Word>Unidos</Word>
+      <Word>unindent</Word>
+      <Word>uninitialize</Word>
+      <Word>uninitialized</Word>
+      <Word>uninstantiated</Word>
+      <Word>unmaintainable</Word>
+      <Word>unmapping</Word>
+      <Word>unmarshal</Word>
+      <Word>unmodeled</Word>
+      <Word>unregister</Word>
+      <Word>unregistering</Word>
+      <Word>unregisters</Word>
+      <Word>unregistration</Word>
+      <Word>unrepresentable</Word>
+      <Word>unterminated</Word>
+      <Word>untrusted</Word>
+      <Word>uri</Word>
+      <Word>uris</Word>
+      <Word>url</Word>
+      <Word>Url</Word>
+      <Word>urls</Word>
+      <Word>utc</Word>
+      <Word>utf</Word>
+      <Word>Util</Word>
+      <Word>utilizer</Word>
+      <Word>validator</Word>
+      <Word>var</Word>
+      <Word>versionable</Word>
+      <Word>versioning</Word>
+      <Word>virtualize</Word>
+      <Word>virtualizes</Word>
+      <Word>virtualizing</Word>
+      <Word>visualizer</Word>
+      <Word>visualizers</Word>
+      <Word>vsa</Word>
+      <Word>wcf</Word>
+      <Word>weblog</Word>
+      <Word>wiki</Word>
+      <Word>Winapi</Word>
+      <Word>wininet</Word>
+      <Word>winmm</Word>
+      <Word>Winres</Word>
+      <Word>wmf</Word>
+      <Word>wmi</Word>
+      <Word>wml</Word>
+      <Word>Wnd</Word>
+      <Word>wpf</Word>
+      <Word>wql</Word>
+      <Word>wsdl</Word>
+      <Word>xaml</Word>
+      <Word>xhtml</Word>
+      <Word>xjis</Word>
+      <Word>xmlns</Word>
+      <Word>xor</Word>
+      <Word>xrml</Word>
+      <Word>xsd</Word>
+      <Word>xsi</Word>
+      <Word>xsl</Word>
+      <Word>xslt</Word>
+      <Word>xxx</Word>
+      <Word>yyyy</Word>
+      <Word>zh</Word>
+    <Word>abcdefghijklmnopqrstuvwxyz</Word>
+    </Recognized>
+    <Deprecated>
+      <!-- Be sure to pascal-case deprecated terms and preferred alternates     -->
+      <!-- Note that terms consisting of one or two tokens only will be flagged -->
+      <!-- eg, ComPlus can be checked for but NewComPlus will not be detected   -->
+      <!-- 
+        This is a list of deprecated terms with their preferred alternates and is 
+        used by UsePreferredTerms. The deprecated terms are case-insensitive, 
+        however, make sure to pascal-case the preferred alternates. If a word 
+        does not have a preferred alternate, simply leave it blank.  
+    
+    To include a term in the list of terms that code analysis identifies as deprecated, add the term as the inner text of a Dictionary/Words/Deprecated/Term element. A deprecated term is a word that is spelled correctly but should not be used.
+    To include a suggested alternate term in the warning, specify the alternate in the PreferredAlternate attribute of the Term element. You can leave the attribute value empty if you do not want to suggest an alternate.
+    •The deprecated term in Dictionary/Words/ Deprecated/Term element is not case-sensitive. 
+    •The PreferredAlternate attribute value is case-sensitive. Use Pascal case for compound alternates.
+      -->
+      <Term PreferredAlternate="EnterpriseServices">complus</Term>
+      <Term PreferredAlternate="Canceled">cancelled</Term>
+      <Term PreferredAlternate="Canceling">cancelling</Term>
+      <Term PreferredAlternate="Cancelation">cancellation</Term>
+      <Term PreferredAlternate="Cancelations">cancellations</Term>
+      <Term PreferredAlternate="Indexes">indices</Term>
+      <Term PreferredAlternate="LogOn">login</Term>
+      <Term PreferredAlternate="LogOff">logout</Term>
+      <Term PreferredAlternate="SignIn">signon</Term>
+      <Term PreferredAlternate="SignOut">signoff</Term>
+      <Term PreferredAlternate="Writable">writeable</Term>
+      <Term PreferredAlternate="Cannot">cant</Term>
+      <Term PreferredAlternate="AreNot">arent</Term>
+      <Term PreferredAlternate="DoNot">dont</Term>
+      <Term PreferredAlternate="DoesNot">doesnt</Term>
+      <Term PreferredAlternate="DidNot">didnt</Term>
+      <Term PreferredAlternate="CouldNot">couldnt</Term>
+      <Term PreferredAlternate="WouldNot">wouldnt</Term>
+      <Term PreferredAlternate="ShouldNot">shouldnt</Term>
+      <Term PreferredAlternate="WillNot">wont</Term>
+      <Term PreferredAlternate="HaveNot">havent</Term>
+      <Term PreferredAlternate="HasNot">hasnt</Term>
+      <Term PreferredAlternate="HadNot">hadnt</Term>
+      <Term PreferredAlternate="IsNot">isnt</Term>
+      <Term PreferredAlternate="WasNot">wasnt</Term>
+      <Term PreferredAlternate="WereNot">werent</Term>
+    </Deprecated>
+    <Compound>
+      <!-- 
+        This is a list of discrete terms with their compound alternates and is used by 
+        CompoundWordsShouldBeCasedCorrectly. These are words that exist in the 
+        dictionary as discrete terms, however, should actually be cased as compound words. 
+        For example, 'Filename' exists in the dictionary and hence the spelling rules will 
+        not see it as unrecognized but its actual preferred usage is 'FileName'; adding it
+        below causes CompoundWordsShouldBeCasedCorrectly to fire. The discrete terms are 
+        case-insensitive, however, be sure to pascal-case the compound alternates.
+        
+    Any discrete terms added below automatically get added to the list of discrete
+        exceptions to prevent CompoundWordsShouldBeCasedCorrectly from firing both on the
+        compound word (for example 'WhiteSpace') and its discrete alternate (for example 
+        'Whitespace').
+    
+    The built-in dictionary identifies some terms as single, discrete terms rather than a compound term. To include a term in the list of terms that code analysis identifies as a compound word and to specify the correct casing of the term, 
+    add the term as the inner text of a Dictionary/Words/Compound/Term element. 
+    In the CompoundAlternate attribute of the Term element, specify the individual words that make up the compound term by capitalizing the first letter of the individual words (Pascal case). 
+    Note that the term specified in the inner text is automatically added to the Dictionary/Words/DiscreteExceptions list.
+    •The deprecated term in Dictionary/Words/ Deprecated/Term element is not case-sensitive. 
+    •The PreferredAlternate attribute value is case-sensitive. Use Pascal case for compound alternates.
+      -->
+      <Term CompoundAlternate="DataBind">databind</Term>
+      <Term CompoundAlternate="DataBinds">databinds</Term>
+      <Term CompoundAlternate="DataBinding">databinding</Term>
+      <Term CompoundAlternate="DataStore">datastore</Term>
+      <Term CompoundAlternate="DataStores">datastores</Term>
+      <Term CompoundAlternate="DataSet">dataset</Term>
+      <Term CompoundAlternate="DataSets">datasets</Term>
+      <Term CompoundAlternate="TextBox">textbox</Term>
+      <Term CompoundAlternate="TextBoxes">textboxes</Term>
+      <Term CompoundAlternate="CodePage">codelinepage</Term>
+      <Term CompoundAlternate="CodePages">codelinepages</Term>
+      <Term CompoundAlternate="CheckBox">checkbox</Term>
+      <Term CompoundAlternate="CheckBoxes">checkboxes</Term>
+      <Term CompoundAlternate="PushButton">pushbutton</Term>
+      <Term CompoundAlternate="PushButtons">pushbuttons</Term>
+      <Term CompoundAlternate="DropDown">dropdown</Term>
+      <Term CompoundAlternate="DropDowns">dropdowns</Term>
+      <Term CompoundAlternate="ToolBar">toolbar</Term>
+      <Term CompoundAlternate="ToolBars">toolbars</Term>
+      <Term CompoundAlternate="ScrollBar">scrollbar</Term>
+      <Term CompoundAlternate="ScrollBars">scrollbars</Term>
+      <Term CompoundAlternate="BitFlag">bitflag</Term>
+      <Term CompoundAlternate="BitFlags">bitflags</Term>
+      <Term CompoundAlternate="FileName">filename</Term>
+      <Term CompoundAlternate="FileNames">filenames</Term>
+      <Term CompoundAlternate="FileServer">fileserver</Term>
+      <Term CompoundAlternate="FileServers">fileservers</Term>
+      <Term CompoundAlternate="UserName">username</Term>
+      <Term CompoundAlternate="UserNames">usernames</Term>
+      <Term CompoundAlternate="HostName">hostname</Term>
+      <Term CompoundAlternate="HostNames">hostnames</Term>
+      <Term CompoundAlternate="FieldName">fieldname</Term>
+      <Term CompoundAlternate="FieldNames">fieldnames</Term>
+      <Term CompoundAlternate="PathName">pathname</Term>
+      <Term CompoundAlternate="PathNames">pathnames</Term>
+      <Term CompoundAlternate="AssemblyName">assemblyname</Term>
+      <Term CompoundAlternate="AssemblyNames">assemblynames</Term>
+      <Term CompoundAlternate="WhiteSpace">whitespace</Term>
+      <Term CompoundAlternate="WhiteSpaces">whitespaces</Term>
+      <Term CompoundAlternate="LogOn">logon</Term>
+      <Term CompoundAlternate="LogOns">logons</Term>
+      <Term CompoundAlternate="LogOff">logoff</Term>
+      <Term CompoundAlternate="LogOffs">logoffs</Term>
+      <Term CompoundAlternate="SignIn">signin</Term>
+      <Term CompoundAlternate="SignIns">signins</Term>
+      <Term CompoundAlternate="SignOut">signout</Term>
+      <Term CompoundAlternate="SignOuts">signouts</Term>
+      <Term CompoundAlternate="StyleSheet">stylesheet</Term>
+      <Term CompoundAlternate="StyleSheets">stylesheets</Term>
+      <Term CompoundAlternate="FrontEnd">frontend</Term>
+      <Term CompoundAlternate="FrontEnds">frontends</Term>
+      <Term CompoundAlternate="BackEnd">backend</Term>
+      <Term CompoundAlternate="BackEnds">backends</Term>
+      <Term CompoundAlternate="SiteMap">sitemap</Term>
+      <Term CompoundAlternate="SiteMaps">sitemaps</Term>
+      <Term CompoundAlternate="DataType">datatype</Term>
+      <Term CompoundAlternate="DataTypes">datatypes</Term>
+      <Term CompoundAlternate="DesignTime">designtime</Term>
+      <Term CompoundAlternate="DesignTimes">designtimes</Term>
+      <Term CompoundAlternate="ReadOnly">readonly</Term>
+      <Term CompoundAlternate="TrueType">truetype</Term>
+      <Term CompoundAlternate="NetBios">netbios</Term>
+      <Term CompoundAlternate="AutoDetect">autodetect</Term>
+      <Term CompoundAlternate="AutoDetects">autodetects</Term>
+      <Term CompoundAlternate="AutoScroll">autoscroll</Term>
+      <Term CompoundAlternate="AutoScrolls">autoscrolls</Term>
+      <Term CompoundAlternate="AutoComplete">autocomplete</Term>
+      <Term CompoundAlternate="AutoCompletes">autocompletes</Term>
+      <Term CompoundAlternate="AutoSave">autosave</Term>
+      <Term CompoundAlternate="AutoSaves">autosaves</Term>
+      <Term CompoundAlternate="JavaScript">javascript</Term>
+      <Term CompoundAlternate="JScript">jscript</Term>
+      <Term CompoundAlternate="VoiceView">voiceview</Term>
+      <Term CompoundAlternate="AppleTalk">appletalk</Term>
+      <Term CompoundAlternate="MapInfo">mapinfo</Term>
+      <Term CompoundAlternate="NewLine">newline</Term>
+      <Term CompoundAlternate="NewLines">newlines</Term>
+      <Term CompoundAlternate="QWord">qword</Term>
+      <Term CompoundAlternate="QWords">qwords</Term>
+      <Term CompoundAlternate="KeySet">keyset</Term>
+      <Term CompoundAlternate="KeySets">keysets</Term>
+      <Term CompoundAlternate="CodeBase">codelinebase</Term>
+      <Term CompoundAlternate="CodeBases">codelinebases</Term>
+      <Term CompoundAlternate="GridLine">gridline</Term>
+      <Term CompoundAlternate="GridLines">gridlines</Term>
+      <Term CompoundAlternate="OpCode">opcodeline</Term>
+      <Term CompoundAlternate="OpCodes">opcodelines</Term>
+      <Term CompoundAlternate="NUnit">nunit</Term>
+      <Term CompoundAlternate="TearDown">teardown</Term>
+      <Term CompoundAlternate="TestIs">testis</Term>
+      <Term CompoundAlternate="FxCop">fxcop</Term>
+    </Compound>
+    <DiscreteExceptions>
+      <!--
+        This is a list of case-insensitive exceptions to the CompoundWordsShouldBeCasedCorrectly 
+        discrete term check. As this check works solely on the basis of whether two consecutive
+        tokens exists in the dictionary, it can have a high false positive rate. For example, 
+        'onset' exists in the dictionary but the user probably intended it to be 'OnSet'. 
+        Adding this word below prevents this rule from firing telling the user to change 'OnSet' to 'Onset'.
+    
+    To exclude a term in the list of terms that code analysis identifies as a single, 
+    discrete word when the term is checked by the casing rules for compound words, add the term as the inner text of a Dictionary/Words/DiscreteExceptions/Term element. 
+    The term in Dictionary/Words/DiscreteExceptions/Term element is not case-sensitive.
+      -->
+      <Term>onset</Term>
+      <Term>inset</Term>
+      <Term>byname</Term>
+      <Term>setout</Term>
+      <Term>countertype</Term>
+      <Term>editor</Term>
+      <Term>longtime</Term>
+      <Term>drawstring</Term>
+      <Term>hookup</Term>
+      <Term>cleanup</Term>
+      <Term>breakout</Term>
+      <Term>setline</Term>
+      <Term>maybe</Term>
+      <Term>nods</Term>
+      <Term>classis</Term>
+      <Term>gettable</Term>
+      <Term>inform</Term>
+      <Term>beset</Term>
+      <Term>settable</Term>
+      <Term>standalone</Term>
+      <Term>threadlike</Term>
+      <Term>infield</Term>
+      <Term>infields</Term>
+      <Term>meantime</Term>
+      <Term>mackey</Term>
+      <Term>jscript</Term>
+      <Term>ipv</Term>
+      <!-- IPv4, IPv6 -->
+      <Term>tooltip</Term>
+      <Term>tooltips</Term>
+      <Term>indispose</Term>
+      <Term>webhost</Term>
+      <Term>webhosts</Term>
+      <Term>preshow</Term>
+      <Term>superfast</Term>
+      <Term>goto</Term>
+      <!-- GoTo -->
+      <Term>endpoint</Term>
+      <!-- Prevalent usage of both casings in System.Net and System.ServiceModel -->
+      <Term>strongbox</Term>
+    </DiscreteExceptions>
+  </Words>
+  <Acronyms>
+  <!--
+  To include an acronym in the list of terms that code analysis identifies as correctly spelled and to indicate how the acronym when the term is checked by the casing rules for compound words, 
+  add the term as the inner text of a Dictionary/Acronyms/CasingExceptions/Acronym element. 
+  The acronym in the Dictionary/Acronyms/CasingExceptions/Acronym element is case-sensitive.
+  -->
+    <CasingExceptions>
+      <Acronym>Mb</Acronym>
+      <Acronym>MSpec</Acronym>
+      <Acronym>SR</Acronym><!--  String Resource -->
+      <Acronym>LCID</Acronym>
+      <Acronym>Pv</Acronym><!-- IPv4, IPv6 -->
+      <Acronym>Pi</Acronym>
+      <Acronym>Na</Acronym><!-- NaN -->
+      <Acronym>NESW</Acronym><!-- North East South West -->
+      <Acronym>NWSE</Acronym><!-- North West South East -->
+      <Acronym>Op</Acronym><!-- OpCode -->
+      <Acronym>MD</Acronym><!-- HashMD5 -->
+      <Acronym>RC</Acronym><!-- RC2 - Algorithm -->
+      <Acronym>UK</Acronym><!-- UK -->
+      <Acronym>EL</Acronym><!-- El Salvador -->
+    </CasingExceptions>
+  </Acronyms>
+</Dictionary>

@@ -1,0 +1,215 @@
+<#@ template debug="true" hostSpecific="true" language="C#" #><#@ output extension=".cs" #>
+// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="Syntony.AssemblyInfo.cs" company="Syntony">
+//   Copyright © 2004-2015 by Syntony - Ing. Josef Hahnl, MBA  hahnl@aon.at - All rights reserved.
+// </copyright>
+// <author>Ing. Josef Hahnl, MBA / Pepi</author>
+// <email>hahnl@aon.at</email>
+// <date>07.04.2012 14:12:27</date>
+// <information solution="InvoiceNumber" project="InvoiceNumber" framework=".NET Framework 4.0" kind="Windows (C#)">
+//   <file type =".cs" created ="05.04.2012 13:54:32" modified="07.04.2012 14:12:26">
+//     C:\Users\Pepi\Documents\Syntony\Projects\SharedSource\Syntony.AssemblyInfo.cs
+//   </file>
+//   <lines total="361" allCommentLines="256" blankLines="44" codeLines="62" codeRatio="17,17 %" commentLines="256" documentationLines="0" netLines="317"/>
+//   <language>C#</language>
+//   <namespace></namespace>
+//   <class></class>
+//   <Identifiers>
+//   </Identifiers>
+// </information>
+// <summary>
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
+#region FileDescription
+#pragma warning disable 1587
+/// <summary>
+/// This file "Syntony.AssemblyInfo.cs" (located in the "...\CommonProperties\SharedSources\" folder) 
+/// is part of the complete AssemblyInfo and will be used for all Syntony projects (like Syntony.SyntonyFramework.*.dll).
+/// </summary>
+#pragma warning restore 1587
+// This file "Syntony.AssemblyInfo.cs" (located in "...\CommonProperties\SharedSources\" folder) 
+// is the root part of the complete AssemblyInfo file structure and will be used for all Syntony-elements like *.dll and *.exe.
+// *****************************************************************************************************************************
+// :warning: In common add this file as a LINK to the Visual Studio project :warning:
+// :warning: If added as a LINK, changes to Syntony.AssemblyInfo.cs affects on every assembly of the Syntony project (*.exe and *.dll) :warning:
+// :warning: So be very careful changing a piece of code inside this file :warning:
+// *****************************************************************************************************************************
+// There are maximum 5 pieces of AssemblyInfo.cs in a solution which are supported by "CommonProperties\SharedSources\Syntony.Common.props":
+//      :one: "Syntony.AssemblyInfo.cs" (located in the "...\CommonProperties\SharedSources\" folder) ... this file should be added as a LINK!
+//          This file is detected by MSBuild via $(SharedSources)\$(Company).AssemblyInfo.cs.
+//          AssemblyCompany, AssemblyCopyright, AssemblyTrademark, AssemblyConfiguration, AssemblyCulture, NeutralResourcesLanguage
+//          CLSCompliant, Security (if OLD_TARGET_FRAMEWORKVERSION is defined), ComVisible, RuntimeCompatibility
+//          "Syntony.AssemblyInfo.cs" is the root part of the complete AssemblyInfo and will be used for all Syntony-elements like *.dll and *.exe.
+//          
+//      :two: "Syntony.Framework.AssemblyInfo.cs" (located in the "...\CommonProperties\SharedSources\" folder) ... this file should be added as a LINK!
+//          This file is detected by MSBuild via $(SharedSources)\$(Company).Framework.AssemblyInfo.cs and is created by a text template Syntony.Framework.AssemblyInfo.tt.
+//          AssemblyProduct, AssemblyVersion, AssemblyFileVersion, SatelliteContractVersion, AssemblyInformationalVersion, ComCompatibleVersion
+//          "Syntony.Framework.AssemblyInfo.cs" is part of the complete AssemblyInfo and will be used for all Syntony.Framework elements (Syntony.Framework.*.dll).
+//
+//      :three: "Syntony.[ProjectName].AssemblyInfo.cs" (located in "...\[ProjectName]\Source\Properties\" folder)
+//          This file is detected by MSBuild via $(MSBuildProjectDirectory)\Properties\$(Company).$(MSBuildProjectName).AssemblyInfo.cs.
+//          AssemblyTitel, Assembly Description, AssemblyProduct, InternalsVisibleTo, Guid, and all other attributes like special Security or Logging attributes
+//          If AssemblyVersion, AssemblyFileVersion, SatelliteContractVersion, AssemblyInformationalVersion, ComCompatibleVersion is set, this file can be created by a text template Syntony.[ProjectName].AssemblyInfo.tt.
+//
+//      :four:  "Syntony.[ProjectName].Version.AssemblyInfo.cs" (located in "...\[ProjectName]\Source\Properties\" folder)
+//          This file is detected by MSBuild via$(MSBuildProjectDirectory)\Properties\$(Company).$(MSBuildProjectName).Version.AssemblyInfo.cs and is created in common by a text template Syntony.[ProjectName].Version.AssemblyInfo.tt.
+//          Use this file only for setting different versions if not set in :three: "Syntony.[ProjectName].AssemblyInfo.cs" or :five: "AssemblyInfo.cs"
+//          AssemblyVersion, AssemblyFileVersion, SatelliteContractVersion, AssemblyInformationalVersion, ComCompatibleVersion
+//          
+//      :five: "AssemblyInfo.cs" (located in "...\[ProjectName]\Source\Properties\" folder)
+//          This file is detected by MSBuild via $(MSBuildProjectDirectory)\Properties\AssemblyInfo.cs
+//          Can have the same attributes like "Syntony.[ProjectName].AssemblyInfo.cs" if "Syntony.[ProjectName].AssemblyInfo.cs" is not included.
+//          AssemblyTitel, Assembly Description, AssemblyProduct, InternalsVisibleTo, Guid, and all other attributes like special Security or Logging attributes
+//          If AssemblyVersion, AssemblyFileVersion, SatelliteContractVersion, AssemblyInformationalVersion, ComCompatibleVersion is set, this file can be created by a text template AssemblyInfo.tt.
+//
+// There are some symbol definitions:
+//      #define SYNTONY because it is a Syntony project ... this symbol is definied in :one: "Syntony.AssemblyInfo.cs"
+//      #define SYNTONY_FRAMEWORK if this is a Syntony SyntonyFramework project ... this symbol is defined in :two: "Syntony.Framework.AssemblyInfo.cs"
+//      #define OLD_TARGET_FRAMEWORKVERSION if you use .NET target framework less than 4.0 (that means if you use .Net SyntonyFramework 2.0, 3.0 or 3.5)
+//
+//      #define NEUTRALRESOURCES_EN if English is used as the neutral culture of a Syntony-Assembly (also if NOT defined this is the default behavior) ... NEUTRALRESOURCES_EN can be defined in project properties
+//      #define NEUTRALRESOURCES_DE if German is used as the neutral culture of a Syntony-Assembly ... NEUTRALRESOURCES_DE can be defined in project properties
+//      if NEUTRALRESOURCES_EN and NEUTRALRESOURCES_DE are NOT defined => NEUTRALRESOURCES_EN is set and English is used as the neutral culture
+//
+//      #define CLS_COMPLIANT_TRUE to set [assembly: CLSCompliant(true)] ... VISUALSTUDIOPACKAGE, CLS_COMPLIANT_FALSE, CLS_COMPLIANT_TRUE should be defined in project properties
+//      #define VISUALSTUDIOPACKAGE or CLS_COMPLIANT_FALSE to set [assembly: CLSCompliant(false)] 
+//      if neither VISUALSTUDIOPACKAGE, CLS_COMPLIANT_FALSE, CLS_COMPLIANT_TRUE is defined  [assembly: CLSCompliant(true)] is set
+//
+//      #define MAKE_PACKAGE if you want to add this project result to a NuGet package within Release configuration only - you can define the symbol MAKE_PACKAGE in every AssemblyInfo.cs file as described above
+#endregion FileDescription
+
+#region Definition
+
+#if !SYNTONY
+// This is a SYNTONY project
+#define SYNTONY
+#endif
+
+#if (!NEUTRALRESOURCES_EN && !NEUTRALRESOURCES_DE && !VISUALSTUDIOPACKAGE)
+// English is used as the neutral culture for Syntony projects
+#define NEUTRALRESOURCES_EN
+#endif
+
+#endregion Definition
+
+#region Using Directives
+
+using System.Reflection;
+using System.Resources;
+using System.Runtime.InteropServices;
+
+#endregion
+
+#region Version
+
+// Version information for an assembly consists of the following four values:
+//      Major Version
+//      Minor Version 
+//      Build Number
+//      Revision
+// You can specify all the values or you can default the Revision and Build Numbers 
+// by using the '*' as shown below:// Specifies the revision of the assembly being attributed. 
+// The assembly revision number is part of an assembly's identity and plays a key part in binding to the assembly and in revision policy. 
+// The default revision policy for the runtime is that applications run only with the versions they were built and tested with, 
+// unless overridden by explicit revision policy in configuration files (the application configuration file, 
+// the publisher policy file, and the computer's administrator configuration file). See Assemblies Overview for more information.
+// Annotation: Version checking only occurs with strong-named assemblies.
+// The revision number has four parts, as follows: 
+// <major revision>.<minor revision>.<build number>.<revision>
+// You can specify all the values or you can accept the default build number, revision number, or both by using an asterisk (*). 
+// For example, [assembly:AssemblyVersion("2.3.25.1")] indicates 2 as the major revision, 3 as the minor revision, 
+// 25 as the build number, and 1 as the revision number. 
+// A revision number such as [assembly:AssemblyVersion("1.2.*")] specifies 1 as the major revision, 2 as the minor revision, 
+// and accepts the default build and revision numbers. 
+// A revision number such as [assembly:AssemblyVersion("1.2.15.*")] specifies 1 as the major revision, 2 as the minor revision, 
+// 15 as the build number, and accepts the default revision number. 
+// The default build number increments daily. The default revision number is random.
+//
+// The AssemblyVersion is required and AssemblyVersion is where other assemblies that reference your assembly will look. 
+// So if this number changes, other assemblies have to update their references to your assembly!
+// Therefore we use the format: Major.Minor without Build and Revision
+[assembly: AssemblyVersion("<#= this.Major #>.<#= this.Minor #>.0.0")] 
+
+// Instructs a compiler to use a specific revision number for the Win32 file revision resource. 
+// The Win32 file revision is not required to be the same as the assembly's revision number
+//
+// AssemblyFileVersion is used for deployment. You can increase this number for every deployment. 
+// It is used by setup programs. Use it to mark assemblies that have the same AssemblyVersion, but are generated from different builds.
+// In Windows, it can be viewed in the file properties.
+// If possible, let it be generated by MSBuild or as we do with a T4 TextTemplate. 
+// The AssemblyFileVersion is optional. If not given, the AssemblyVersion is used.
+// We use the format: major.minor.build.revision, where  we can use bulid and /or revision for development stage (Alpha, Beta, RC and RTM), service packs and hot fixes. 
+[assembly: AssemblyFileVersion("<#= this.Major #>.<#= this.Minor #>.<#= this.Build #>.<#= this.Revision #>")] 
+
+// Defines additional revision information for an assembly manifest.
+// The attribute defined by this class attaches additional revision information to an assembly for documentation purposes only. 
+// The informational version provides additional version information for an assembly, in string format. 
+// It is for informational purposes only and is not used at run time. 
+// Although you can specify any text, a warning message appears on compilation if the string is not in the format used by the assembly version number, or if it is in that format but contains wildcard characters. This warning is harmless.
+// 
+// AssemblyInformationalVersion defines the Product version of the assembly. 
+// This is the version you would use when talking to customers or for display on your website. 
+// This version can be a string, like '1.0 Release Candidate'. Unfortunately, when you use a string, it will generate a false warning -- already reported to Microsoft (fixed in VS2010). Also the Code Analysis will complain about it (CA2243) -- reported to Microsoft (not fixed in VS2013). 
+// The AssemblyInformationalVersion is optional. If not given, the AssemblyVersion is used.
+// We use the format: major.minor maybe later with [revision as string (where we have to ignore the CA2243 warning)]. 
+[assembly: AssemblyInformationalVersion("<#= this.Major #>.<#= this.Minor #>.0.0")] 
+
+// How do we retrieve these values in code? Like this:
+// AssemblyFileVersion          => System.Diagnostics.FileVersionInfo.FileVersion
+// AssemblyInformationalVersion => System.Diagnostics.FileVersionInfo.ProductVersion
+// AssemblyVersion              => System.Reflection.Assembly.Version
+
+// Instructs the ResourceManager to ask for a particular revision of a satellite assembly to simplify updates of the main assembly of an application.
+// The SatelliteContractVersionAttribute establishes a contract between a main assembly and all its satellites. 
+// When the ResourceManager looks up resources, it explicitly loads the satellite revision specified by this attribute on the main assembly, 
+// allowing a layer of indirection to facilitate versioning scenarios.
+// When the main assembly is updated, its assembly revision number is incremented. 
+// However, you might not want to ship new copies of your satellite assemblies if the existing ones are sufficient 
+// and compatible with the newer revision of your product. 
+// In this case, increment the main assembly's revision number but leave the satellite contract revision number the same. 
+// The ResourceManager will use your existing satellite assemblies.
+// If you need to revise a satellite assembly but not the main assembly, you must increment the revision number on your satellite. 
+// In this case, ship a policy assembly along with your satellite assembly stating that your new satellite assembly 
+// has backward compatibility with your old satellite assembly. 
+// The ResourceManager will still use the old contract number written into your main assembly; 
+// however, the loader will bind to the satellite assembly revision as specified by the policy assembly.
+// A publisher policy assembly is the way in which a vendor of a shared component makes 
+// a compatibility statement about a particular revision of a released assembly. 
+// A publisher policy assembly is a strongly named assembly with a name in the format 
+// policy.<major>.<minor>.<ComponentAssemblyName>, and is registered in the Global Assembly Cache (GAC). 
+// The publisher policy is generated from an XML configuration file (see <bindingRedirect> Element) by using the Assembly Linker (Al.exe) tool. 
+// The assembly linker is used with the /link option to link the XML configuration file to a manifest assembly, 
+// that is then stored in the GAC. 
+// The publisher policy assemblies can be used when a vendor ships a maintenance release (Service Pack) that contains bugfixes.
+// 
+// All code in .NET is packaged in assemblies; these are standard Windows PE (portable executable) files, either EXEs (processes) or DLLs (libraries). 
+// A version can be applied to a library assembly using the [AssemblyVersion] custom attribute. The compiler stores this version in the assembly that uses the library, 
+// and the run-time library loading technology, Fusion, uses the version specified with this attribute to load the correct (strong named) library assembly. 
+// Satellite assemblies are DLLs, but although the name may suggest that they are located and loaded in a similar way to library assemblies, they are actually loaded using a different mechanism. 
+// Further, there is a versioning attribute specifically for satellite assemblies, [SatelliteContractVersion], but this is applied to the assembly that uses the satellite rather than the satellite.
+[assembly: SatelliteContractVersion("<#= this.Major #>.<#= this.Minor #>.0.0")] 
+
+#endregion Version
+
+#region COM
+
+// Indicates to a COM client that all classes in the current revision of an assembly are compatible with classes in an earlier revision of the assembly.
+// By default, the Property type Library Exporter (Tlbexp.exe) uses an assembly's revision number to calculate class identifiers (CLSIDs). 
+// All public, COM-visible classes receive new CLSIDs each time you export a new assembly revision.
+// You can apply the ComCompatibleVersionAttribute attribute to force all CLSIDs for classes in the current revision of an assembly to be 
+// the same as CLSIDs for classes in an earlier revision of the assembly. 
+// As long as the CLSIDs remain the same, a legacy COM application can use the later revision of a compatible assembly after you uninstall the original assembly.
+// If you apply the System.Runtime.InteropServices.GuidAttribute to a class to explicitly set its CLSID, the ComCompatibleVersionAttribute has no effect.
+// The properties of this attribute combine to form the four parts of an assembly revision. 
+// Always specify the lowest revision that the current assembly is backward compatible with so that revision is used to calculate all CLSIDs in the assembly.
+[assembly: ComCompatibleVersion(1, 0, 0, 0)]
+
+#endregion COM
+
+<#+
+	// build the Major, Minor, Build and Revision property of a Version
+	int Major = 0; 
+	int Minor = 1; 
+	int Build = (int)(DateTime.Now - new DateTime(2015,8,1)).TotalDays; // wedding anniversary :smile:
+	int Revision = (int)(DateTime.Now - DateTime.Today).TotalSeconds; 
+#>

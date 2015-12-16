@@ -1,0 +1,51 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Syntony.Framework.Assistance", "Source\Assistance\Source\Syntony.Framework.Assistance.csproj", "{0011D8B5-55C2-4EBC-B353-2FFF0AE7A974}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{E67429AD-D499-43C7-B0D3-488DA6A9C015}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Syntony.Framework.Assistance.UnitTests", "Source\Assistance\Tests\UnitTests\Source\Syntony.Framework.Assistance.UnitTests.csproj", "{D6206C78-B26D-4C15-98A5-F2FF3C1CBB3A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		CodeAnalysis|Any CPU = CodeAnalysis|Any CPU
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0011D8B5-55C2-4EBC-B353-2FFF0AE7A974}.CodeAnalysis|Any CPU.ActiveCfg = CodeAnalysis|Any CPU
+		{0011D8B5-55C2-4EBC-B353-2FFF0AE7A974}.CodeAnalysis|Any CPU.Build.0 = CodeAnalysis|Any CPU
+		{0011D8B5-55C2-4EBC-B353-2FFF0AE7A974}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0011D8B5-55C2-4EBC-B353-2FFF0AE7A974}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0011D8B5-55C2-4EBC-B353-2FFF0AE7A974}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0011D8B5-55C2-4EBC-B353-2FFF0AE7A974}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6206C78-B26D-4C15-98A5-F2FF3C1CBB3A}.CodeAnalysis|Any CPU.ActiveCfg = CodeAnalysis|Any CPU
+		{D6206C78-B26D-4C15-98A5-F2FF3C1CBB3A}.CodeAnalysis|Any CPU.Build.0 = CodeAnalysis|Any CPU
+		{D6206C78-B26D-4C15-98A5-F2FF3C1CBB3A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6206C78-B26D-4C15-98A5-F2FF3C1CBB3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6206C78-B26D-4C15-98A5-F2FF3C1CBB3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6206C78-B26D-4C15-98A5-F2FF3C1CBB3A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D6206C78-B26D-4C15-98A5-F2FF3C1CBB3A} = {E67429AD-D499-43C7-B0D3-488DA6A9C015}
+	EndGlobalSection
+	GlobalSection(TeamFoundationVersionControl) = preSolution
+		SccNumberOfProjects = 3
+		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
+		SccTeamFoundationServer = http://pc-6280g:8080/tfs/syntonycollection
+		SccLocalPath0 = .
+		SccProjectUniqueName1 = Source\\Assistance\\Source\\Syntony.Framework.Assistance.csproj
+		SccProjectName1 = Source/Assistance/Source
+		SccLocalPath1 = Source\\Assistance\\Source
+		SccProjectUniqueName2 = Source\\Assistance\\Tests\\UnitTests\\Source\\Syntony.Framework.Assistance.UnitTests.csproj
+		SccProjectTopLevelParentUniqueName2 = Syntony.Framework.sln
+		SccProjectName2 = Source/Assistance/Tests/UnitTests/Source
+		SccLocalPath2 = Source\\Assistance\\Tests\\UnitTests\\Source
+	EndGlobalSection
+EndGlobal
